@@ -1,8 +1,8 @@
 {
-  "version": "1.2.0",
-  "versionCode": 3,
-  "notes": "• إصلاح كراش تفاصيل المهمة والجزء الأبيض تحت النماذج\n• إصلاح حذف المهام وتحديث القوائم عند التنقل\n• إزالة المساحة الفاضية المزدوجة فوق الصفحات\n• إصلاح عنوان الأسبوع ورسم الإحصائيات والأسهم في الوضع العربي\n• تحسينات في السرعة والاستجابة",
-  "notesEn": "• Fixed task-detail crash and blank panel under forms\n• Fixed task deletion and list refresh on tab switches\n• Removed the double top gap above pages\n• Fixed planner week title, stats chart and RTL arrows\n• Performance and responsiveness improvements",
-  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.2.0/Orbit-release.apk",
-  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.2.0"
+  "version": "1.2.1",
+  "versionCode": 4,
+  "notes": "• التطبيق بيفتح على طول من غير شاشة تحميل\n• الخطوط بتتحمل في الخلفية من غير تعطيل الفتح",
+  "notesEn": "• The app now opens instantly with no loading screen\n• Fonts load in the background without blocking startup",
+  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.2.1/Orbit-release.apk",
+  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.2.1"
 }

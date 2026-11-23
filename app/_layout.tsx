@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
-import { SplashScreen } from 'expo-router';
 import {
   Cairo_400Regular,
   Cairo_600SemiBold,
@@ -19,36 +18,25 @@ import { I18nProvider } from '@/src/i18n/I18nProvider';
 import { UpdateProvider } from '@/src/updates';
 import { handleNotificationAction, initNotifications } from '@/src/notifications';
 
-SplashScreen.preventAutoHideAsync();
-
 const TASK_ACTIONS = ['complete', 'postpone_hour', 'postpone_day'];
 
 export default function RootLayout() {
   useFrameworkReady();
 
-  const [fontsLoaded, fontError] = useFonts({
+  // Preload the Arabic font in the background. The UI is never blocked on it:
+  // expo-font re-renders automatically once the font is available, so the app
+  // opens immediately with no splash/loading screen.
+  useFonts({
     'Cairo': Cairo_400Regular,
     'Cairo-SemiBold': Cairo_600SemiBold,
     'Cairo-Bold': Cairo_700Bold,
   });
 
-  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    initNotifications().catch(() => {});
+  }, []);
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-      setReady(true);
-    }
-  }, [fontsLoaded, fontError]);
-
-  useEffect(() => {
-    if (ready) {
-      initNotifications().catch(() => {});
-    }
-  }, [ready]);
-
-  useEffect(() => {
-    if (!ready) return;
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as { taskId?: string } | undefined;
       const actionId = response.actionIdentifier;
@@ -57,11 +45,7 @@ export default function RootLayout() {
       }
     });
     return () => subscription.remove();
-  }, [ready]);
-
-  if (!ready) {
-    return null;
-  }
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

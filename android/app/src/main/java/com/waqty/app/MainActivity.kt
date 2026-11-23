@@ -1,5 +1,4 @@
 package com.waqty.app
-import expo.modules.splashscreen.SplashScreenManager
 
 import android.content.Context
 import android.content.res.Configuration
@@ -50,13 +49,9 @@ class MainActivity : ReactActivity() {
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    // Set the theme to AppTheme BEFORE onCreate to support
-    // coloring the background, status bar, and navigation bar.
-    // This is required for expo-splash-screen.
-    // setTheme(R.style.AppTheme);
-    // @generated begin expo-splashscreen - expo prebuild (DO NOT MODIFY) sync-f3ff59a738c56c9a6119210cb55f0b613eb8b6af
-    SplashScreenManager.registerOnActivity(this)
-    // @generated end expo-splashscreen
+    // The native splash screen is intentionally NOT registered: the app must
+    // open instantly with no white/lines loading screen. React renders on the
+    // first frame and the Cairo font loads in the background via expo-font.
     super.onCreate(null)
   }
 
