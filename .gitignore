@@ -1,0 +1,36 @@
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Native build output
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+android/*.log
+android/hs_err_pid*.log
+android/replay_pid*.log
+
+# Local release artifacts (attach these to GitHub Releases instead)
+*.apk
+*.aab
+
+# Logs and temporary screenshots
+*.log
+_build-release.log
+build-release.log
+build-universal.log
+/_*.png
+/*_screen.png
+/orbit-icon-512.png
+/_*.xml
+
+# IDE and local screenshots
+.idea/
+/settings_*.png
+
+# OS files
+.DS_Store
+Thumbs.db
