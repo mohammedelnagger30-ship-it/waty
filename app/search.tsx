@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, Pressable } from 'react-native';
 import { ArrowLeft, Search, CheckSquare, Target, ListChecks, Flame, NotebookPen } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
@@ -154,7 +155,7 @@ export default function SearchScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <ArrowLeft size={24} color={theme.text.primary} />
+            <BackArrow size={24} color={theme.text.primary} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
             {t('search.title')}

@@ -3,6 +3,19 @@ import { EntityType } from './entities';
 
 const STORAGE_PREFIX = '@waqty/';
 
+// AsyncStorage repositories do read-modify-write. Without serialization, a
+// quick create followed by delete (or vice versa) can interleave and bring a
+// deleted task back. Queue every access per entity type so reads always see
+// the latest committed write.
+const queues = new Map<EntityType, Promise<unknown>>();
+
+function queueWrite<T>(type: EntityType, work: () => Promise<T>): Promise<T> {
+  const previous = queues.get(type) ?? Promise.resolve();
+  const result = previous.then(work, work);
+  queues.set(type, result.catch(() => undefined));
+  return result;
+}
+
 function key(type: EntityType): string {
   return `${STORAGE_PREFIX}${type}`;
 }
@@ -25,49 +38,58 @@ async function writeAll<T>(type: EntityType, items: T[]): Promise<void> {
 export function createRepository<T extends { id: string }>(type: EntityType) {
   return {
     async getAll(): Promise<T[]> {
-      return readAll<T>(type);
+      return queueWrite(type, () => readAll<T>(type));
     },
 
     async getById(id: string): Promise<T | null> {
-      const items = await readAll<T>(type);
-      return items.find((item) => item.id === id) ?? null;
+      return queueWrite(type, async () => {
+        const items = await readAll<T>(type);
+        return items.find((item) => item.id === id) ?? null;
+      });
     },
 
     async create(item: T): Promise<T> {
-      const items = await readAll<T>(type);
-      items.push(item);
-      await writeAll(type, items);
-      return item;
+      return queueWrite(type, async () => {
+        const items = await readAll<T>(type);
+        if (items.some((existing) => existing.id === item.id)) return item;
+        items.push(item);
+        await writeAll(type, items);
+        return item;
+      });
     },
 
     async update(id: string, updates: Partial<T>): Promise<T | null> {
-      const items = await readAll<T>(type);
-      const index = items.findIndex((item) => item.id === id);
-      if (index === -1) return null;
-      items[index] = {
-        ...items[index],
-        ...updates,
-        id: items[index].id,
-        ...('updatedAt' in items[index] ? { updatedAt: new Date().toISOString() } : {}),
-      };
-      await writeAll(type, items);
-      return items[index];
+      return queueWrite(type, async () => {
+        const items = await readAll<T>(type);
+        const index = items.findIndex((item) => item.id === id);
+        if (index === -1) return null;
+        items[index] = {
+          ...items[index],
+          ...updates,
+          id: items[index].id,
+          ...('updatedAt' in items[index] ? { updatedAt: new Date().toISOString() } : {}),
+        };
+        await writeAll(type, items);
+        return items[index];
+      });
     },
 
     async delete(id: string): Promise<boolean> {
-      const items = await readAll<T>(type);
-      const filtered = items.filter((item) => item.id !== id);
-      if (filtered.length === items.length) return false;
-      await writeAll(type, filtered);
-      return true;
+      return queueWrite(type, async () => {
+        const items = await readAll<T>(type);
+        const filtered = items.filter((item) => item.id !== id);
+        if (filtered.length === items.length) return false;
+        await writeAll(type, filtered);
+        return true;
+      });
     },
 
     async replaceAll(items: T[]): Promise<void> {
-      await writeAll(type, items);
+      return queueWrite(type, () => writeAll(type, items));
     },
 
     async clear(): Promise<void> {
-      await AsyncStorage.removeItem(key(type));
+      return queueWrite(type, () => AsyncStorage.removeItem(key(type)));
     },
   };
 }
@@ -83,5 +105,11 @@ export function nowISO(): string {
 }
 
 export function todayISODate(): string {
-  return new Date().toISOString().split('T')[0];
+  // Use local date: toISOString() is UTC and gives yesterday's date for the
+  // first hours of the day in UTC+ timezones, breaking grouping/reminders.
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

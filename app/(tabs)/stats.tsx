@@ -36,7 +36,7 @@ const PERIODS: Period[] = ['7', '30', 'all'];
 
 export default function StatsScreen() {
   const { theme } = useTheme();
-  const { t, language } = useI18n();
+  const { t, language, isRTL } = useI18n();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -76,6 +76,9 @@ export default function StatsScreen() {
   );
 
   const maxDay = Math.max(1, ...stats.daily.map((day) => Math.max(day.completed, day.created)));
+  // A 30-day bar chart cannot fit on a phone: each column needs ~19dp. Show
+  // the most recent 14 days so bars and labels stay inside the card.
+  const chartDays = stats.daily.length > 14 ? stats.daily.slice(-14) : stats.daily;
   const trendValues = useMemo(() => stats.daily.map((day) => day.completed), [stats.daily]);
   const bestDay = useMemo(
     () => stats.daily.reduce((best, day) => (day.completed > best.completed ? day : best), stats.daily[0]),
@@ -178,7 +181,7 @@ export default function StatsScreen() {
             </Text>
           </View>
           <View style={styles.chart}>
-            {stats.daily.map((day) => (
+            {chartDays.map((day) => (
               <View key={day.date} style={styles.chartColumn}>
                 <View style={styles.bars}>
                   <View
@@ -259,7 +262,7 @@ export default function StatsScreen() {
                     ]}
                   />
                 </View>
-                <Text style={[styles.categoryPercent, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                <Text style={[styles.categoryPercent, { color: theme.text.tertiary, fontFamily: typography.fontFamily, textAlign: isRTL ? 'left' : 'right' }]}>
                   {category.percent}%
                 </Text>
               </View>
@@ -412,17 +415,20 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   bars: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 3,
     height: 74,
   },
   bar: {
-    width: 8,
+    flex: 1,
+    maxWidth: 8,
+    minWidth: 2,
     borderRadius: 4,
   },
   chartLabel: {
-    fontSize: 10,
+    fontSize: 11,
   },
   legend: {
     flexDirection: 'row',

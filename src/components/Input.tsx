@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   leftIcon: {
-    marginRight: spacing.sm,
+    marginEnd: spacing.sm,
   },
   input: {
     flex: 1,

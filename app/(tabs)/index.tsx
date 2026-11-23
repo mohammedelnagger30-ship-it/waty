@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   StyleSheet,
@@ -19,11 +20,13 @@ import {
   Star,
   StarOff,
   ChevronRight,
+  ChevronLeft,
   Focus,
   ClipboardList,
   CalendarDays,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
@@ -43,8 +46,9 @@ type ViewMode = 'timeline' | 'list';
 
 export default function TodayScreen() {
   const { theme, isDark } = useTheme();
-  const { t, language } = useI18n();
+  const { t, language, isRTL } = useI18n();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,18 +69,21 @@ export default function TodayScreen() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+  // Tabs stay mounted, so reload whenever this screen becomes visible.
+  useFocusEffect(useCallback(() => { void loadTasks(); }, [loadTasks]));
 
   const handleRefresh = () => {
     setRefreshing(true);
     loadTasks();
   };
 
+  const notify = async (work: () => Promise<unknown>) => {
+    try { await work(); } catch { /* notifications are best-effort */ }
+  };
+
   const handleAddTask = async (task: Task) => {
     await taskRepository.create(task);
-    await scheduleTaskReminders(task);
+    await notify(() => scheduleTaskReminders(task));
     await loadTasks();
   };
 
@@ -86,7 +93,7 @@ export default function TodayScreen() {
       completedAt: new Date().toISOString(),
     };
     await taskRepository.update(task.id, next);
-    await cancelTaskReminders(task.id);
+    await notify(() => cancelTaskReminders(task.id));
     await loadTasks();
   };
 
@@ -112,8 +119,8 @@ export default function TodayScreen() {
         text: t('rollover.delete'),
         style: 'destructive',
         onPress: async () => {
-          await cancelTaskReminders(task.id);
           await taskRepository.delete(task.id);
+          await notify(() => cancelTaskReminders(task.id));
           await loadTasks();
         },
       },
@@ -311,7 +318,7 @@ export default function TodayScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
           <Text style={{ color: theme.text.tertiary, fontFamily: typography.fontFamily }}>
             {t('common.loading')}
@@ -322,7 +329,7 @@ export default function TodayScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -567,7 +574,9 @@ export default function TodayScreen() {
               {t('planner.title')}
             </Text>
           </View>
-          <ChevronRight size={20} color={theme.text.tertiary} />
+          {isRTL
+            ? <ChevronLeft size={20} color={theme.text.tertiary} />
+            : <ChevronRight size={20} color={theme.text.tertiary} />}
         </Pressable>
 
         {/* Stats shortcut */}
@@ -584,7 +593,9 @@ export default function TodayScreen() {
               {t('stats.title')}
             </Text>
           </View>
-          <ChevronRight size={20} color={theme.text.tertiary} />
+          {isRTL
+            ? <ChevronLeft size={20} color={theme.text.tertiary} />
+            : <ChevronRight size={20} color={theme.text.tertiary} />}
         </Pressable>
       </ScrollView>
 

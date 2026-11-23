@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, StyleSheet, Text, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
 import { CheckSquare, Plus, Calendar } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -63,30 +64,36 @@ export default function TasksScreen() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+  // Tabs stay mounted, so reload whenever this screen becomes visible.
+  // Otherwise a task created/deleted on another screen stays stale here.
+  useFocusEffect(useCallback(() => { void loadTasks(); }, [loadTasks]));
 
   const handleRefresh = () => {
     setRefreshing(true);
     loadTasks();
   };
 
+  // Storage is the source of truth. Notification failures must never abort a
+  // create/delete or leave the list showing a stale task.
+  const notify = async (work: () => Promise<unknown>) => {
+    try { await work(); } catch { /* notifications are best-effort */ }
+  };
+
   const handleAddTask = async (task: Task) => {
     await taskRepository.create(task);
-    await scheduleTaskReminders(task);
+    await notify(() => scheduleTaskReminders(task));
     await loadTasks();
   };
 
   const handleUpdateTask = async (task: Task) => {
     await taskRepository.update(task.id, task);
-    await rescheduleTaskReminders(task);
+    await notify(() => rescheduleTaskReminders(task));
     await loadTasks();
   };
 
   const handleDeleteTask = async (id: string) => {
-    await cancelTaskReminders(id);
     await taskRepository.delete(id);
+    await notify(() => cancelTaskReminders(id));
     await loadTasks();
   };
 
@@ -94,10 +101,10 @@ export default function TasksScreen() {
     const { nextOccurrence, completed } = completeRepeatingTask(task);
     if (nextOccurrence) {
       await taskRepository.create(nextOccurrence);
-      await scheduleTaskReminders(nextOccurrence);
+      await notify(() => scheduleTaskReminders(nextOccurrence));
     }
     await taskRepository.update(task.id, completed);
-    await cancelTaskReminders(task.id);
+    await notify(() => cancelTaskReminders(task.id));
     await loadTasks();
   };
 
@@ -108,7 +115,7 @@ export default function TasksScreen() {
       date: next,
       originalDate: task.date,
     });
-    if (updated) await rescheduleTaskReminders(updated);
+    if (updated) await notify(() => rescheduleTaskReminders(updated));
     await loadTasks();
   };
 
@@ -239,7 +246,7 @@ export default function TasksScreen() {
         )}
       </ScrollView>
 
-      <FAB onPress={() => setShowQuickAdd(true)} bottom={90} icon={<Plus size={28} color="#FFFFFF" strokeWidth={2.5} />} />
+      <FAB onPress={() => setShowQuickAdd(true)} bottom={28} icon={<Plus size={28} color="#FFFFFF" strokeWidth={2.5} />} />
 
       <QuickAddModal
         visible={showQuickAdd}

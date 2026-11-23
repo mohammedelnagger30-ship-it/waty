@@ -53,6 +53,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   right: {
-    marginLeft: spacing.md,
+    marginStart: spacing.md,
   },
 });

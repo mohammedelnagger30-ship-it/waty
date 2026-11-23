@@ -16,6 +16,7 @@ import {
   LayoutGrid,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -47,7 +48,7 @@ function getMonthStart(date: Date): Date {
 }
 
 function dateToISO(d: Date): string {
-  return d.toISOString().split('T')[0];
+  return toLocalISO(d);
 }
 
 function toLocalISO(d: Date): string {
@@ -66,7 +67,7 @@ function getWorkloadLevel(count: number): 'light' | 'balanced' | 'overloaded' {
 
 export default function PlannerScreen() {
   const { theme, isDark } = useTheme();
-  const { t, language } = useI18n();
+  const { t, language, isRTL } = useI18n();
   const router = useRouter();
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -323,8 +324,8 @@ export default function PlannerScreen() {
   };
 
   const headerTitle = mode === 'week'
-    ? `${language === 'ar' ? WEEK_DAYS_AR : WEEK_DAYS_EN[0]} - ${language === 'ar' ? WEEK_DAYS_AR : WEEK_DAYS_EN[6]}`
-    : `${language === 'ar' ? MONTHS_AR : MONTHS_EN[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    ? `${language === 'ar' ? WEEK_DAYS_AR[0] : WEEK_DAYS_EN[0]} - ${language === 'ar' ? WEEK_DAYS_AR[6] : WEEK_DAYS_EN[6]}`
+    : `${language === 'ar' ? MONTHS_AR[currentDate.getMonth()] : MONTHS_EN[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
 
   if (loading) {
     return (
@@ -343,7 +344,7 @@ export default function PlannerScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <ArrowLeft size={24} color={theme.text.primary} />
+            <BackArrow size={24} color={theme.text.primary} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
             {t('planner.title')}
@@ -401,7 +402,7 @@ export default function PlannerScreen() {
         {/* Calendar Header */}
         <View style={styles.calHeader}>
           <Pressable onPress={handlePrevPeriod} hitSlop={12} style={styles.navBtn}>
-            <ChevronLeft size={22} color={theme.text.secondary} />
+            {isRTL ? <ChevronRight size={22} color={theme.text.secondary} /> : <ChevronLeft size={22} color={theme.text.secondary} />}
           </Pressable>
           <Pressable onPress={handleToday}>
             <Text style={[styles.calTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
@@ -409,7 +410,7 @@ export default function PlannerScreen() {
             </Text>
           </Pressable>
           <Pressable onPress={handleNextPeriod} hitSlop={12} style={styles.navBtn}>
-            <ChevronRight size={22} color={theme.text.secondary} />
+            {isRTL ? <ChevronLeft size={22} color={theme.text.secondary} /> : <ChevronRight size={22} color={theme.text.secondary} />}
           </Pressable>
         </View>
 

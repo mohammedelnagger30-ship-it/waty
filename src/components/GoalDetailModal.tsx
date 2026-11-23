@@ -192,7 +192,10 @@ export function GoalDetailModal({
 
 const styles = StyleSheet.create({
   scroll: {
-    maxHeight: '78%',
+    // RN ScrollView defaults to flexGrow: 1, which makes short forms expand
+    // to the sheet's max height and leaves a blank white band over the page.
+    flexGrow: 0,
+    flexShrink: 1,
   },
   body: {
     fontSize: typography.sizes.sm,

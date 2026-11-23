@@ -24,6 +24,7 @@ import {
   BookOpen,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -263,7 +264,7 @@ export default function DailyReviewScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <ArrowLeft size={24} color={theme.text.primary} />
+            <BackArrow size={24} color={theme.text.primary} />
           </Pressable>
           <View style={styles.headerCenter}>
             <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>

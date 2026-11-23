@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   StyleSheet,
@@ -25,6 +26,7 @@ import {
   Copy,
 } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -69,9 +71,27 @@ export default function TaskDetailScreen() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => {
-    loadTask();
-  }, [loadTask]);
+  useFocusEffect(useCallback(() => { void loadTask(); }, [loadTask]));
+
+  const notify = async (work: () => Promise<unknown>) => {
+    try { await work(); } catch { /* notifications are best-effort */ }
+  };
+
+  const confirmAndDelete = (deleteId: string) => {
+    Alert.alert(t('tasks.confirmDelete'), t('tasks.confirmDeleteMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: async () => {
+          await taskRepository.delete(deleteId);
+          await notify(() => cancelTaskReminders(deleteId));
+          if (router.canGoBack()) router.back();
+          else router.replace('/tasks');
+        },
+      },
+    ]);
+  };
 
   const handleStatusChange = async (status: TaskStatus) => {
     if (!task) return;
@@ -79,19 +99,19 @@ export default function TaskDetailScreen() {
       const { nextOccurrence, completed } = completeRepeatingTask(task);
       if (nextOccurrence) {
         await taskRepository.create(nextOccurrence);
-        await scheduleTaskReminders(nextOccurrence);
+        await notify(() => scheduleTaskReminders(nextOccurrence));
       }
       await taskRepository.update(task.id, completed);
-      await cancelTaskReminders(task.id);
+      await notify(() => cancelTaskReminders(task.id));
     } else {
       const updates: Partial<Task> = { status };
       if (status === 'done') updates.completedAt = new Date().toISOString();
       const updated = await taskRepository.update(task.id, updates);
       if (updated) {
         if (status === 'done' || status === 'cancelled') {
-          await cancelTaskReminders(task.id);
+          await notify(() => cancelTaskReminders(task.id));
         } else {
-          await rescheduleTaskReminders(updated);
+          await notify(() => rescheduleTaskReminders(updated));
         }
       }
     }
@@ -100,25 +120,12 @@ export default function TaskDetailScreen() {
 
   const handleSave = async (updated: Task) => {
     await taskRepository.update(updated.id, updated);
-    await rescheduleTaskReminders(updated);
+    await notify(() => rescheduleTaskReminders(updated));
     await loadTask();
   };
 
   const handleDelete = () => {
-    Alert.alert(t('tasks.confirmDelete'), t('tasks.confirmDeleteMsg'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          if (task) {
-            await cancelTaskReminders(task.id);
-            await taskRepository.delete(task.id);
-            router.back();
-          }
-        },
-      },
-    ]);
+    if (task) confirmAndDelete(task.id);
   };
 
   const handleDuplicate = async () => {
@@ -135,7 +142,7 @@ export default function TaskDetailScreen() {
       updatedAt: now,
     };
     const created = await taskRepository.create(duplicate);
-    await scheduleTaskReminders(created);
+    await notify(() => scheduleTaskReminders(created));
     router.replace(`/tasks/${created.id}` as any);
   };
 
@@ -231,13 +238,16 @@ export default function TaskDetailScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
         <View style={[styles.header, { backgroundColor: theme.background }]}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <ArrowLeft size={24} color={theme.text.primary} />
+            <BackArrow size={24} color={theme.text.primary} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
             {t('tasks.detail')}
           </Text>
           <View style={styles.headerActions}>
-            <Pressable onPress={handleDuplicate} hitSlop={12} style={styles.headerAction}>\n              <Copy size={20} color={theme.secondary[500]} />\n            </Pressable>\n            <Pressable onPress={() => setShowEdit(true)} hitSlop={12} style={styles.headerAction}>
+            <Pressable onPress={handleDuplicate} hitSlop={12} style={styles.headerAction}>
+              <Copy size={20} color={theme.secondary[500]} />
+            </Pressable>
+            <Pressable onPress={() => setShowEdit(true)} hitSlop={12} style={styles.headerAction}>
               <Pencil size={20} color={theme.text.secondary} />
             </Pressable>
             <Pressable onPress={handleDelete} hitSlop={12} style={styles.headerAction}>
@@ -506,11 +516,7 @@ export default function TaskDetailScreen() {
         visible={showEdit}
         onClose={() => setShowEdit(false)}
         onSave={handleSave}
-        onDelete={async (delId) => {
-          await cancelTaskReminders(delId);
-          await taskRepository.delete(delId);
-          router.back();
-        }}
+        onDelete={(delId) => confirmAndDelete(delId)}
         editingTask={task}
       />
     </View>

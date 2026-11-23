@@ -13,7 +13,7 @@ import { todayISODate } from '@/src/storage/repository';
 interface QuickAddModalProps {
   visible: boolean;
   onClose: () => void;
-  onAdd: (task: Task) => void;
+  onAdd: (task: Task) => void | Promise<void>;
   onMoreDetails?: (title: string, time: string) => void;
 }
 
@@ -30,14 +30,15 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
     }
   }, [visible]);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!title.trim()) return;
     const task = createDefaultTask({
       title: title.trim(),
       date: todayISODate(),
       time: time.trim() || undefined,
     });
-    onAdd(task);
+    // Wait for storage before closing so the new task is never "lost".
+    await onAdd(task);
     onClose();
   };
 

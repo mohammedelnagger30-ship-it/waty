@@ -23,6 +23,14 @@ function getMonthDays(year: number, month: number) {
 }
 
 const WEEKDAYS = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
+const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function toLocalISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export default function CalendarScreen() {
   const { theme } = useTheme();
@@ -68,7 +76,7 @@ export default function CalendarScreen() {
     setSelected(null);
   };
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = toLocalISO(new Date());
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -88,7 +96,7 @@ export default function CalendarScreen() {
           </View>
 
           <View style={styles.weekRow}>
-            {WEEKDAYS.map((day) => (
+            {(language === 'ar' ? WEEKDAYS : WEEKDAYS_EN).map((day) => (
               <Text key={day} style={[styles.weekday, { color: theme.text.tertiary, fontFamily: typography.fontFamilySemiBold }]}>
                 {day}
               </Text>
@@ -98,7 +106,7 @@ export default function CalendarScreen() {
           <View style={styles.grid}>
             {cells.map((date, index) => {
               if (!date) return <View key={`empty-${index}`} style={styles.cell} />;
-              const key = date.toISOString().slice(0, 10);
+              const key = toLocalISO(date);
               const dayTasks = tasksByDate[key] ?? [];
               const isSelected = selected === key;
               const isToday = key === todayKey;
@@ -182,7 +190,7 @@ export default function CalendarScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  content: { padding: spacing.lg, paddingBottom: 96 },
   monthCard: { marginBottom: spacing.md },
   monthHeader: {
     flexDirection: 'row',
@@ -224,7 +232,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     end: spacing.lg,
-    bottom: 90,
+    bottom: 16,
     width: 52,
     height: 52,
     borderRadius: 26,

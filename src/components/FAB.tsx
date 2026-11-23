@@ -24,7 +24,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
 const HALO_TIMING = { duration: 1900, easing: Easing.out(Easing.quad) };
 
-export function FAB({ onPress, icon, bottom = 90 }: FABProps) {
+export function FAB({ onPress, icon, bottom = 16 }: FABProps) {
   const { theme } = useTheme();
   const reduced = useReducedMotion();
   const pulse = useSharedValue(0);

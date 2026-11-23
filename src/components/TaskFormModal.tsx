@@ -32,8 +32,8 @@ import {
 interface TaskFormModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (task: Task) => void;
-  onDelete?: (id: string) => void;
+  onSave: (task: Task) => void | Promise<void>;
+  onDelete?: (id: string) => void | Promise<void>;
   editingTask?: Task | null;
   initialTask?: Task | null;
 }
@@ -104,15 +104,15 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!task.title.trim()) return;
-    onSave({ ...task, title: task.title.trim(), updatedAt: new Date().toISOString() });
+    await onSave({ ...task, title: task.title.trim(), updatedAt: new Date().toISOString() });
     onClose();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (editingTask && onDelete) {
-      onDelete(editingTask.id);
+      await onDelete(editingTask.id);
       onClose();
     }
   };

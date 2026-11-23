@@ -23,6 +23,7 @@ import {
   Send,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { useTheme } from '@/src/context';
@@ -135,7 +136,7 @@ export default function NotificationSettingsScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <ArrowLeft size={24} color={theme.text.primary} />
+            <BackArrow size={24} color={theme.text.primary} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
             {t('notifications.title')}

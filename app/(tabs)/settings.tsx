@@ -7,6 +7,7 @@ import {
   Info,
   Bell,
   ChevronRight,
+  ChevronLeft,
   Repeat,
   Calendar,
   Search,
@@ -106,6 +107,7 @@ function PaletteOption({ palette, selected, onSelect }: PaletteOptionProps) {
 
 function NavRow({ icon, title, description, onPress }: NavRowProps) {
   const { theme } = useTheme();
+  const { isRTL } = useI18n();
   return (
     <Pressable
       onPress={onPress}
@@ -128,7 +130,9 @@ function NavRow({ icon, title, description, onPress }: NavRowProps) {
           </Text>
         ) : null}
       </View>
-      <ChevronRight size={20} color={theme.text.tertiary} />
+      {isRTL
+        ? <ChevronLeft size={20} color={theme.text.tertiary} />
+        : <ChevronRight size={20} color={theme.text.tertiary} />}
     </Pressable>
   );
 }

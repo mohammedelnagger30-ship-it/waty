@@ -170,11 +170,12 @@ export function ModalSheet({ children, visible, onClose, title, ...modalProps }:
 
   return (
     <Modal
+      {...modalProps}
       visible={mounted}
       transparent
+      backdropColor="transparent"
       animationType="none"
       onRequestClose={onClose}
-      {...modalProps}
     >
       <AnimatedPressable
         style={[styles.overlay, { backgroundColor: theme.overlay }, overlayStyle]}
@@ -187,8 +188,9 @@ export function ModalSheet({ children, visible, onClose, title, ...modalProps }:
               backgroundColor: theme.surface,
               borderTopLeftRadius: radius.xl,
               borderTopRightRadius: radius.xl,
-              // Keep sheet content above the system navigation bar.
-              paddingBottom: spacing.xxl + insets.bottom,
+              // Keep sheet content above the system navigation bar without
+              // leaving a large blank band below short forms.
+              paddingBottom: Math.max(spacing.md, insets.bottom),
             },
             sheetStyle,
           ]}

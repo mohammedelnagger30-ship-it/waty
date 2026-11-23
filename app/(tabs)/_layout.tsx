@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet, View, Platform } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, CheckSquare, Target, BarChart3, Settings as SettingsIcon } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -21,7 +21,7 @@ export default function TabLayout() {
     );
 
   return (
-    <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: theme.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -89,7 +89,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-    </SafeAreaView>
+    </View>
   );
 }
 

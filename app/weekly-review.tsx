@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { ArrowLeft, CheckCircle2, Target, Flame, Save, CalendarRange } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
@@ -146,7 +147,7 @@ export default function WeeklyReviewScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <ArrowLeft size={24} color={theme.text.primary} />
+            <BackArrow size={24} color={theme.text.primary} />
           </Pressable>
           <View style={styles.headerText}>
             <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>

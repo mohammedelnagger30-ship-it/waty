@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, Pressable, Alert, TextInput } from 'react-native';
 import { ArrowLeft, Database, Download, Upload, Trash2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Platform } from 'react-native';
 import { useTheme } from '@/src/context';
@@ -153,7 +154,7 @@ export default function DataScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <ArrowLeft size={24} color={theme.text.primary} />
+            <BackArrow size={24} color={theme.text.primary} />
           </Pressable>
           <View style={styles.headerText}>
             <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
