@@ -8,10 +8,74 @@ export interface TaskGroup {
   tasks: Task[];
 }
 
+/** Format a Date as a LOCAL YYYY-MM-DD key (never UTC). */
+export function toLocalDateKey(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Format a Date as a LOCAL HH:mm string. */
+export function toLocalTimeString(d: Date): string {
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+/** Round a Date up to the next half-hour block. */
+export function roundUpToNextHalfHour(d: Date): Date {
+  const result = new Date(d.getTime());
+  result.setSeconds(0, 0);
+  const minutes = result.getMinutes();
+  if (minutes < 30) result.setMinutes(30);
+  else { result.setMinutes(0); result.setHours(result.getHours() + 1); }
+  return result;
+}
+
+export type QuickTimeKey = 'now' | 'later' | 'tomorrow' | 'morning' | 'evening' | 'clear';
+
+export interface QuickTimePreset {
+  key: QuickTimeKey;
+  date: string;
+  time: string;
+}
+
+/** Next occurrence of a given hour (today if still ahead, otherwise tomorrow). */
+function nextHourAt(hour: number): Date {
+  const d = new Date();
+  d.setHours(hour, 0, 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+/**
+ * One-tap date/time presets shared by quick-add and the full task form.
+ * Always uses LOCAL dates/times so reminders are correct in every timezone.
+ */
+export function getQuickTimePresets(): QuickTimePreset[] {
+  const now = new Date();
+  const later = new Date(now.getTime() + 60 * 60 * 1000);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  const morning = nextHourAt(9);
+  const evening = nextHourAt(19);
+
+  return [
+    { key: 'now', date: toLocalDateKey(now), time: toLocalTimeString(now) },
+    { key: 'later', date: toLocalDateKey(later), time: toLocalTimeString(later) },
+    { key: 'tomorrow', date: toLocalDateKey(tomorrow), time: toLocalTimeString(tomorrow) },
+    { key: 'morning', date: toLocalDateKey(morning), time: toLocalTimeString(morning) },
+    { key: 'evening', date: toLocalDateKey(evening), time: toLocalTimeString(evening) },
+    { key: 'clear', date: toLocalDateKey(now), time: '' },
+  ];
+}
+
 export function getTomorrowDate(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
+  return toLocalDateKey(d);
 }
 
 export function getEndOfWeekDate(): string {
@@ -19,13 +83,13 @@ export function getEndOfWeekDate(): string {
   const day = d.getDay();
   const daysUntilSunday = 7 - day;
   d.setDate(d.getDate() + daysUntilSunday);
-  return d.toISOString().split('T')[0];
+  return toLocalDateKey(d);
 }
 
 export function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  return toLocalDateKey(d);
 }
 
 export function getTaskGroup(task: Task): DateGroup {

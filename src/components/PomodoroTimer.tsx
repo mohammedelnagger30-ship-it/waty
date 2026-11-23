@@ -5,7 +5,8 @@ import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { Card } from './Card';
-import { taskRepository, pomodoroRepository } from '@/src/storage';
+import { Chip } from './Chip';
+import { pomodoroRepository, settingsRepository } from '@/src/storage';
 import { generateId, nowISO } from '@/src/storage/repository';
 import { PomodoroSession } from '@/src/storage/entities';
 import { notifyFocusSessionComplete } from '@/src/notifications/notificationService';
@@ -20,7 +21,7 @@ interface PomodoroTimerProps {
   onSessionComplete: () => void;
 }
 
-type Phase = 'focus' | 'break';
+type Phase = 'focus' | 'break' | 'longBreak';
 type TimerState = 'idle' | 'running' | 'paused';
 
 export function PomodoroTimer({
@@ -37,6 +38,8 @@ export function PomodoroTimer({
 
   const [workMinutes, setWorkMinutes] = useState(25);
   const [breakMinutes, setBreakMinutes] = useState(5);
+  const [longBreakMinutes, setLongBreakMinutes] = useState(15);
+  const [autoStart, setAutoStart] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   const [phase, setPhase] = useState<Phase>('focus');
@@ -45,10 +48,28 @@ export function PomodoroTimer({
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const phaseRef = useRef<Phase>('focus');
+  const focusCountRef = useRef(0);
+  const secondsRef = useRef(25 * 60);
 
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  // Durations are stored in Settings so every task uses the same preferences.
+  useEffect(() => {
+    let mounted = true;
+    void settingsRepository.getOrCreate().then((settings) => {
+      if (!mounted) return;
+      const work = settings.focusMinutes ?? 25;
+      setWorkMinutes(work);
+      setBreakMinutes(settings.breakMinutes ?? 5);
+      setLongBreakMinutes(settings.longBreakMinutes ?? 15);
+      setAutoStart(!!settings.autoStartNextPhase);
+      secondsRef.current = work * 60;
+      setSecondsLeft(work * 60);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const stopInterval = () => {
     if (intervalRef.current) {
@@ -81,37 +102,60 @@ export function PomodoroTimer({
   const handleComplete = useCallback(() => {
     stopInterval();
     const completedPhase = phaseRef.current;
-    const completedMinutes = completedPhase === 'focus' ? workMinutes : breakMinutes;
+    const completedMinutes =
+      completedPhase === 'focus'
+        ? workMinutes
+        : completedPhase === 'break'
+          ? breakMinutes
+          : longBreakMinutes;
 
-    recordSession(completedPhase, completedMinutes);
+    void recordSession(completedPhase, completedMinutes);
 
-    // Switch to opposite phase
-    const nextPhase: Phase = completedPhase === 'focus' ? 'break' : 'focus';
-    const nextSeconds = nextPhase === 'focus' ? workMinutes * 60 : breakMinutes * 60;
+    // A long break follows every 4 completed focus sessions.
+    let nextPhase: Phase;
+    if (completedPhase === 'focus') {
+      focusCountRef.current += 1;
+      nextPhase = focusCountRef.current % 4 === 0 ? 'longBreak' : 'break';
+    } else {
+      nextPhase = 'focus';
+    }
+    const nextSeconds =
+      (nextPhase === 'focus'
+        ? workMinutes
+        : nextPhase === 'break'
+          ? breakMinutes
+          : longBreakMinutes) * 60;
+    secondsRef.current = nextSeconds;
     setPhase(nextPhase);
     setSecondsLeft(nextSeconds);
-    setState('idle');
-  }, [workMinutes, breakMinutes, recordSession]);
+    setState(autoStart ? 'running' : 'idle');
+  }, [workMinutes, breakMinutes, longBreakMinutes, autoStart, recordSession]);
 
   useEffect(() => {
-    if (state === 'running') {
-      intervalRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            handleComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
+    if (state !== 'running') {
       stopInterval();
+      return;
     }
+    intervalRef.current = setInterval(() => {
+      const next = secondsRef.current - 1;
+      if (next <= 0) {
+        secondsRef.current = 0;
+        setSecondsLeft(0);
+        handleComplete();
+      } else {
+        secondsRef.current = next;
+        setSecondsLeft(next);
+      }
+    }, 1000);
     return () => stopInterval();
   }, [state, handleComplete]);
 
   const handleStart = () => {
     if (state === 'idle' || state === 'paused') {
+      if (secondsRef.current <= 0) {
+        secondsRef.current = workMinutes * 60;
+        setSecondsLeft(secondsRef.current);
+      }
       setState('running');
     }
   };
@@ -124,19 +168,55 @@ export function PomodoroTimer({
     stopInterval();
     setState('idle');
     setPhase('focus');
-    setSecondsLeft(workMinutes * 60);
+    secondsRef.current = workMinutes * 60;
+    setSecondsLeft(secondsRef.current);
   };
 
   const handleSkip = () => {
     handleComplete();
   };
 
-  const totalSeconds = phase === 'focus' ? workMinutes * 60 : breakMinutes * 60;
+  const applyDuration = (which: 'work' | 'break' | 'longBreak', minutes: number) => {
+    if (which === 'work') {
+      setWorkMinutes(minutes);
+      void settingsRepository.patch({ focusMinutes: minutes });
+    } else if (which === 'break') {
+      setBreakMinutes(minutes);
+      void settingsRepository.patch({ breakMinutes: minutes });
+    } else {
+      setLongBreakMinutes(minutes);
+      void settingsRepository.patch({ longBreakMinutes: minutes });
+    }
+    const active = which === phase || (which === 'break' && phase === 'longBreak');
+    if (active && state === 'idle') {
+      secondsRef.current = minutes * 60;
+      setSecondsLeft(secondsRef.current);
+    }
+  };
+
+  const toggleAutoStart = () => {
+    const next = !autoStart;
+    setAutoStart(next);
+    void settingsRepository.patch({ autoStartNextPhase: next });
+  };
+
+  const totalSeconds =
+    (phase === 'focus'
+      ? workMinutes
+      : phase === 'break'
+        ? breakMinutes
+        : longBreakMinutes) * 60;
   const progress = totalSeconds > 0 ? 1 - secondsLeft / totalSeconds : 0;
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const timeDisplay = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
+  const phaseLabel =
+    phase === 'focus'
+      ? t('pomodoro.focus')
+      : phase === 'break'
+        ? t('pomodoro.break')
+        : t('pomodoro.longBreak');
   const phaseColor = phase === 'focus' ? theme.primary[500] : theme.accent[500];
   const isRunning = state === 'running';
 
@@ -151,7 +231,7 @@ export function PomodoroTimer({
         <View style={[styles.phaseBadge, { backgroundColor: phaseColor + '22' }]}>
           <Timer size={16} color={phaseColor} />
           <Text style={[styles.phaseText, { color: phaseColor, fontFamily: typography.fontFamilySemiBold }]}>
-            {phase === 'focus' ? t('pomodoro.focus') : t('pomodoro.break')}
+            {phaseLabel}
           </Text>
         </View>
         <Pressable onPress={() => setShowSettings(!showSettings)} hitSlop={8}>
@@ -180,7 +260,7 @@ export function PomodoroTimer({
               {timeDisplay}
             </Text>
             <Text style={[styles.phaseLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-              {phase === 'focus' ? t('pomodoro.focus') : t('pomodoro.break')}
+              {phaseLabel}
             </Text>
           </View>
         </View>
@@ -252,10 +332,7 @@ export function PomodoroTimer({
             {[15, 25, 30, 45, 50].map((m) => (
               <Pressable
                 key={m}
-                onPress={() => {
-                  setWorkMinutes(m);
-                  if (phase === 'focus' && state === 'idle') setSecondsLeft(m * 60);
-                }}
+                onPress={() => applyDuration('work', m)}
                 style={[
                   styles.durationChip,
                   {
@@ -286,10 +363,7 @@ export function PomodoroTimer({
             {[5, 10, 15, 20].map((m) => (
               <Pressable
                 key={m}
-                onPress={() => {
-                  setBreakMinutes(m);
-                  if (phase === 'break' && state === 'idle') setSecondsLeft(m * 60);
-                }}
+                onPress={() => applyDuration('break', m)}
                 style={[
                   styles.durationChip,
                   {
@@ -311,6 +385,43 @@ export function PomodoroTimer({
                 </Text>
               </Pressable>
             ))}
+          </View>
+
+          <Text style={[styles.settingsLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold, marginTop: spacing.md }]}>
+            {t('pomodoro.longBreakDuration')}
+          </Text>
+          <View style={styles.durationRow}>
+            {[10, 15, 20, 30].map((m) => (
+              <Pressable
+                key={m}
+                onPress={() => applyDuration('longBreak', m)}
+                style={[
+                  styles.durationChip,
+                  {
+                    backgroundColor: longBreakMinutes === m ? theme.accent[500] : theme.surface,
+                    borderColor: longBreakMinutes === m ? theme.accent[500] : theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.durationText,
+                    {
+                      color: longBreakMinutes === m ? '#FFFFFF' : theme.text.secondary,
+                      fontFamily: typography.fontFamilySemiBold,
+                    },
+                  ]}
+                >
+                  {m}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={{ marginTop: spacing.md }}>
+            <Chip selected={autoStart} onPress={toggleAutoStart}>
+              {t('pomodoro.autoStart')}
+            </Chip>
           </View>
         </View>
       )}

@@ -126,20 +126,15 @@ export function computeDashboardStats(
     (task) => task.status !== 'done' && task.status !== 'cancelled',
   );
 
-  const focusMinutes =
-    tasks.reduce((sum, task) => sum + (task.actualMinutes || 0), 0) +
-    pomodoros
-      .filter(
-        (session) =>
-          session.type === 'focus' &&
-          withinPeriod(dateOf(session.startedAt) ?? today, period, today),
-      )
-      .reduce((sum, session) => sum + session.durationMinutes, 0);
-
-  const sessions = pomodoros.filter(
+  // PomodoroSession rows are the single source of truth for focus time.
+  // task.actualMinutes mirrors the same sessions, so counting both doubled it.
+  const focusSessions = pomodoros.filter(
     (session) =>
-      session.type === 'focus' && withinPeriod(dateOf(session.startedAt) ?? today, period, today),
-  ).length + completedInPeriod.reduce((sum, task) => sum + (task.pomodoroSessions || 0), 0);
+      session.type === 'focus' &&
+      withinPeriod(dateOf(session.startedAt) ?? today, period, today),
+  );
+  const focusMinutes = focusSessions.reduce((sum, session) => sum + session.durationMinutes, 0);
+  const sessions = focusSessions.length;
 
   const activeGoals = goals.filter((goal) => goal.status === 'active').length;
   const completedGoals = goals.filter((goal) => goal.status === 'completed').length;

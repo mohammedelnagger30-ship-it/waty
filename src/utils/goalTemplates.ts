@@ -102,6 +102,62 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
     targetUnit: 'درس',
     color: '#6366F1',
   },
+  {
+    id: 'morning-routine',
+    titleAr: 'روتين صباحي ونوم أفضل',
+    titleEn: 'Morning Routine & Better Sleep',
+    descriptionAr: 'بناء روتين صباحي ثابت وتحسين جودة النوم خلال 60 يوماً',
+    descriptionEn: 'Build a consistent morning routine and improve sleep quality in 60 days',
+    motivationAr: 'بداية منظمة بتخلّي بقية اليوم أخف وأكثر إنتاجية',
+    motivationEn: 'An organized start makes the rest of the day lighter and more productive',
+    category: 'health',
+    type: 'short',
+    targetValue: 60,
+    targetUnit: 'يوم التزام',
+    color: '#0EA5E9',
+  },
+  {
+    id: 'side-project',
+    titleAr: 'إطلاق مشروع جانبي',
+    titleEn: 'Launch a Side Project',
+    descriptionAr: 'من الفكرة إلى أول إصدار حقيقي لمشروعك الخاص خلال 90 يوماً',
+    descriptionEn: 'Go from an idea to a real first release of your own project in 90 days',
+    motivationAr: 'المشروع الجانبي بيحوّل المهارات اللي بتتعلمها لشي ملموس',
+    motivationEn: 'A side project turns the skills you learn into something tangible',
+    category: 'work',
+    type: 'mid',
+    targetValue: 90,
+    targetUnit: 'يوم عمل',
+    color: '#A855F7',
+  },
+  {
+    id: 'job-search',
+    titleAr: 'البحث عن وظيفة مناسبة',
+    titleEn: 'Find a Suitable Job',
+    descriptionAr: 'خطة منظمة للبحث عن وظيفة وتحسين السيرة الذاتية خلال 45 يوماً',
+    descriptionEn: 'An organized job-search plan with CV improvement over 45 days',
+    motivationAr: 'البحث المنظم بيقلّل التوتر وبيزود فرص القبول',
+    motivationEn: 'Structured searching reduces stress and increases your chances',
+    category: 'work',
+    type: 'short',
+    targetValue: 45,
+    targetUnit: 'يوم بحث',
+    color: '#EF4444',
+  },
+  {
+    id: 'communication-skills',
+    titleAr: 'تطوير مهارات التواصل',
+    titleEn: 'Improve Communication Skills',
+    descriptionAr: 'التحدث بثقة والتعبير بوضوح من خلال تدريب يومي خلال 60 يوماً',
+    descriptionEn: 'Speak confidently and express yourself clearly through daily practice in 60 days',
+    motivationAr: 'التواصل الجيد بيفتح أبواب في العمل والعلاقات',
+    motivationEn: 'Good communication opens doors at work and in relationships',
+    category: 'personal',
+    type: 'short',
+    targetValue: 60,
+    targetUnit: 'يوم تدريب',
+    color: '#EC4899',
+  },
 ];
 
 function buildMilestones(
@@ -276,6 +332,106 @@ export function generateTemplateData(templateId: string): { milestones: Mileston
         { title: 'تعلم أساسيات التحكم في الإصدارات (Git)', category: 'study', priority: 'low', estimatedMinutes: 40 },
         { title: 'دراسة المفاهيم المتقدمة: البرمجة الكائنية (OOP)', category: 'study', priority: 'medium', estimatedMinutes: 60 },
         { title: 'بناء مشروع نهائي: تطبيق قائمة مهام', category: 'study', priority: 'high', estimatedMinutes: 120 },
+      ]);
+
+      return { milestones, tasks };
+    }
+
+    case 'morning-routine': {
+      const milestones = buildMilestones([
+        { title: 'الاستيقاظ في نفس الوقت 7 أيام', targetValue: 7, daysFromNow: 7 },
+        { title: 'الالتزام بالروتين 14 يوماً', targetValue: 14, daysFromNow: 14 },
+        { title: 'تقليل السهر وتحسين النوم', targetValue: 30, daysFromNow: 30 },
+        { title: 'روتين ثابت دون تردد', targetValue: 45, daysFromNow: 45 },
+        { title: '60 يوماً من الالتزام الكامل', targetValue: 60, daysFromNow: 60 },
+      ]);
+
+      const tasks = buildTasks([
+        { title: 'تحديد وقت نوم واستيقاظ ثابت', category: 'health', priority: 'high', estimatedMinutes: 20 },
+        { title: 'تحضير ملابس اليوم قبل النوم', category: 'personal', priority: 'medium', estimatedMinutes: 10 },
+        { title: 'شرب كوب ماء فور الاستيقاظ', category: 'health', priority: 'high', estimatedMinutes: 5 },
+        { title: 'تمارين إطالة خفيفة 10 دقائق', category: 'health', priority: 'medium', estimatedMinutes: 10 },
+        { title: 'كتابة 3 أشياء ممتنة لها اليوم', category: 'personal', priority: 'low', estimatedMinutes: 10 },
+        { title: 'مراجعة أهم 3 مهام لليوم', category: 'work', priority: 'high', estimatedMinutes: 15 },
+        { title: 'إيقاف الشاشة قبل النوم بساعة', category: 'health', priority: 'high', estimatedMinutes: 10 },
+        { title: 'تهيئة غرفة النوم (إضاءة وهدوء)', category: 'personal', priority: 'medium', estimatedMinutes: 20 },
+        { title: 'تتبع ساعات النوم يومياً', category: 'health', priority: 'medium', estimatedMinutes: 5 },
+        { title: 'مراجعة أسبوعية للالتزام وتعديل الروتين', category: 'personal', priority: 'medium', estimatedMinutes: 30 },
+      ]);
+
+      return { milestones, tasks };
+    }
+
+    case 'side-project': {
+      const milestones = buildMilestones([
+        { title: 'اختيار الفكرة وتحديد المشكلة', targetValue: 10, daysFromNow: 10 },
+        { title: 'بناء النسخة الأولى (MVP)', targetValue: 30, daysFromNow: 30 },
+        { title: 'تجربة 5 مستخدمين', targetValue: 45, daysFromNow: 45 },
+        { title: 'إضافة أهم 3 تحسينات', targetValue: 65, daysFromNow: 65 },
+        { title: 'إطلاق الإصدار الأول للعامة', targetValue: 90, daysFromNow: 90 },
+      ]);
+
+      const tasks = buildTasks([
+        { title: 'كتابة فكرة المشروع في صفحة واحدة', category: 'work', priority: 'high', estimatedMinutes: 45 },
+        { title: 'تحديد المشكلة التي يحلها المشروع', category: 'work', priority: 'high', estimatedMinutes: 30 },
+        { title: 'بحث عن 3 مشاريع مشابهة وتحليلها', category: 'study', priority: 'medium', estimatedMinutes: 60 },
+        { title: 'رسم خريطة المزايا الأساسية', category: 'work', priority: 'high', estimatedMinutes: 45 },
+        { title: 'إعداد بيئة العمل واختيار الأدوات', category: 'work', priority: 'high', estimatedMinutes: 60 },
+        { title: 'بناء أبسط نسخة تعمل (MVP)', category: 'work', priority: 'high', estimatedMinutes: 120 },
+        { title: 'تجربة المشروع مع 5 أشخاص', category: 'work', priority: 'high', estimatedMinutes: 60 },
+        { title: 'جمع الملاحظات وترتيبها حسب الأهمية', category: 'work', priority: 'medium', estimatedMinutes: 45 },
+        { title: 'تحسين 3 نقاط بناءً على الملاحظات', category: 'work', priority: 'high', estimatedMinutes: 90 },
+        { title: 'جهّز صفحة الإطلاق ونشر المشروع', category: 'work', priority: 'high', estimatedMinutes: 90 },
+      ]);
+
+      return { milestones, tasks };
+    }
+
+    case 'job-search': {
+      const milestones = buildMilestones([
+        { title: 'تحديث السيرة الذاتية وملف التعريف', targetValue: 7, daysFromNow: 7 },
+        { title: 'قائمة 20 شركة مستهدفة', targetValue: 20, daysFromNow: 14 },
+        { title: 'تقديم 10 طلبات', targetValue: 10, daysFromNow: 25 },
+        { title: '3 مقابلات أولية', targetValue: 3, daysFromNow: 35 },
+        { title: 'اختيار العرض المناسب', targetValue: 45, daysFromNow: 45 },
+      ]);
+
+      const tasks = buildTasks([
+        { title: 'تحديث السيرة الذاتية بالإنجازات والأرقام', category: 'work', priority: 'high', estimatedMinutes: 90 },
+        { title: 'كتابة نبذة تعريفية قوية', category: 'work', priority: 'high', estimatedMinutes: 45 },
+        { title: 'ترتيب 20 شركة مستهدفة في جدول', category: 'work', priority: 'high', estimatedMinutes: 60 },
+        { title: 'البحث عن 5 وظائف يومياً', category: 'work', priority: 'high', estimatedMinutes: 40 },
+        { title: 'تخصيص السيرة لكل طلب', category: 'work', priority: 'medium', estimatedMinutes: 30 },
+        { title: 'كتابة خطاب تقديم مختصر', category: 'work', priority: 'medium', estimatedMinutes: 45 },
+        { title: 'متابعة الطلبات بعد 5 أيام', category: 'work', priority: 'medium', estimatedMinutes: 25 },
+        { title: 'التدرب على أسئلة المقابلة الشائعة', category: 'study', priority: 'high', estimatedMinutes: 60 },
+        { title: 'إجراء مقابلة تجريبية مع صديق', category: 'personal', priority: 'medium', estimatedMinutes: 45 },
+        { title: 'مراجعة العروض ومقارنتها', category: 'work', priority: 'high', estimatedMinutes: 60 },
+      ]);
+
+      return { milestones, tasks };
+    }
+
+    case 'communication-skills': {
+      const milestones = buildMilestones([
+        { title: 'التحدث دقيقة كاملة دون تردد', targetValue: 7, daysFromNow: 7 },
+        { title: 'تقديم فكرة في 3 دقائق', targetValue: 15, daysFromNow: 15 },
+        { title: 'تحسين لغة الجسد والتواصل البصري', targetValue: 30, daysFromNow: 30 },
+        { title: 'قيادة نقاش في مجموعة صغيرة', targetValue: 45, daysFromNow: 45 },
+        { title: 'تقديم عرض كامل بثقة', targetValue: 60, daysFromNow: 60 },
+      ]);
+
+      const tasks = buildTasks([
+        { title: 'قراءة فصل عن مهارات التواصل', category: 'study', priority: 'medium', estimatedMinutes: 30 },
+        { title: 'تسجيل صوتي لمدة دقيقة والاستماع له', category: 'personal', priority: 'high', estimatedMinutes: 15 },
+        { title: 'تلخيص فكرة في 3 جمل', category: 'work', priority: 'high', estimatedMinutes: 15 },
+        { title: 'ممارسة التواصل البصري أمام المرآة', category: 'personal', priority: 'medium', estimatedMinutes: 10 },
+        { title: 'الاستماع بنشاط في محادثة واحدة', category: 'personal', priority: 'medium', estimatedMinutes: 20 },
+        { title: 'طرح سؤال في اجتماع أو مجموعة', category: 'work', priority: 'high', estimatedMinutes: 15 },
+        { title: 'تقديم فكرة لمدة 3 دقائق أمام المرآة', category: 'personal', priority: 'high', estimatedMinutes: 30 },
+        { title: 'طلب ملاحظات من زميل أو صديق', category: 'personal', priority: 'medium', estimatedMinutes: 20 },
+        { title: 'تحسين نبرة الصوت وسرعة الكلام', category: 'personal', priority: 'medium', estimatedMinutes: 20 },
+        { title: 'إعداد وتقديم عرض قصير متكامل', category: 'work', priority: 'high', estimatedMinutes: 60 },
       ]);
 
       return { milestones, tasks };

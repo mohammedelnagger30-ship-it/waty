@@ -218,7 +218,8 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
   if (task.status === 'done' || task.status === 'cancelled') return;
   if (!task.time) return;
 
-  const offsets = notifSettings.defaultReminders;
+  // undefined = follow global defaults; an explicit [] means "no reminder".
+  const offsets = task.reminderOffsets ?? notifSettings.defaultReminders;
 
   // Remove existing reminders for this task
   await cancelTaskReminders(task.id);
@@ -228,6 +229,7 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
       id: generateId(),
       taskId: task.id,
       offset,
+      customMinutes: offset === 'custom' ? task.reminderCustomMinutes : undefined,
       scheduledId: undefined,
     };
 
@@ -237,6 +239,7 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
       taskTime: task.time,
       date: task.date,
       offset,
+      customMinutes: reminder.customMinutes,
       body: undefined,
     });
 
@@ -429,8 +432,9 @@ export async function scheduleUntimedTaskNudge(): Promise<void> {
     },
     trigger: {
       type: SchedulableTriggerInputTypes.DAILY,
-      hour: h || 16,
-      minute: m || 0,
+      // 00:xx is a valid setting — `h || 16` wrongly turned midnight into 4pm.
+      hour: Number.isFinite(h) ? Math.min(Math.max(h, 0), 23) : 16,
+      minute: Number.isFinite(m) ? Math.min(Math.max(m, 0), 59) : 0,
     },
     identifier: UNTIMED_NUDGE_ID,
   });

@@ -11,13 +11,14 @@ import {
 } from 'react-native';
 import { Plus, X, Check, Trash2, Clock, Calendar, Tag as TagIcon, Repeat, StickyNote, ListChecks } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
-import { useI18n } from '@/src/i18n';
+import { useI18n, type TranslationKey } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { ModalSheet } from './ModalSheet';
 import { Button } from './Button';
 import { Chip } from './Chip';
 import { Input } from './Input';
-import { Task, TaskPriority, TaskCategory, RepeatType, Subtask } from '@/src/storage/entities';
+import { QuickTimeChips } from './QuickTimeChips';
+import { Task, TaskPriority, TaskCategory, RepeatType, Subtask, ReminderOffset } from '@/src/storage/entities';
 import {
   createDefaultTask,
   createSubtask,
@@ -40,6 +41,17 @@ interface TaskFormModalProps {
 
 const weekDayLabelsAr = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 const weekDayLabelsEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const REMINDER_OPTIONS: ReminderOffset[] = ['at_time', '5', '10', '15', '30', '60', 'custom'];
+const reminderLabelKeys: Record<ReminderOffset, TranslationKey> = {
+  at_time: 'notifications.reminderAtTime',
+  '5': 'notifications.reminder5',
+  '10': 'notifications.reminder10',
+  '15': 'notifications.reminder15',
+  '30': 'notifications.reminder30',
+  '60': 'notifications.reminder60',
+  custom: 'notifications.reminderCustom',
+};
 
 export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask, initialTask }: TaskFormModalProps) {
   const { theme, isDark } = useTheme();
@@ -101,6 +113,15 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
     const days = task.repeatDays ?? [];
     update({
       repeatDays: days.includes(day) ? days.filter((d) => d !== day) : [...days, day].sort(),
+    });
+  };
+
+  const toggleReminder = (offset: ReminderOffset) => {
+    const current = task.reminderOffsets ?? [];
+    update({
+      reminderOffsets: current.includes(offset)
+        ? current.filter((o) => o !== offset)
+        : [...current, offset],
     });
   };
 
@@ -195,6 +216,55 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
                 />
               </View>
             </View>
+          </View>
+
+          {/* One-tap date/time presets */}
+          <View style={styles.fieldGap}>
+            <QuickTimeChips
+              date={task.date}
+              time={task.time ?? ''}
+              onSelect={(preset) => update({ date: preset.date, time: preset.time || undefined })}
+            />
+          </View>
+
+          {/* Per-task reminders */}
+          <View style={styles.fieldGap}>
+            <Text style={[styles.fieldLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
+              {t('tasks.reminder')}
+            </Text>
+            <View style={styles.chipRow}>
+              <Chip
+                selected={task.reminderOffsets === undefined}
+                onPress={() => update({ reminderOffsets: undefined })}
+              >
+                {t('tasks.reminder.default')}
+              </Chip>
+              <Chip
+                selected={task.reminderOffsets?.length === 0}
+                onPress={() => update({ reminderOffsets: [] })}
+              >
+                {t('tasks.reminder.none')}
+              </Chip>
+              {REMINDER_OPTIONS.map((offset) => (
+                <Chip
+                  key={offset}
+                  selected={(task.reminderOffsets ?? []).includes(offset)}
+                  onPress={() => toggleReminder(offset)}
+                >
+                  {t(reminderLabelKeys[offset])}
+                </Chip>
+              ))}
+            </View>
+            {(task.reminderOffsets ?? []).includes('custom') && (
+              <View style={{ marginTop: spacing.sm }}>
+                <Input
+                  value={task.reminderCustomMinutes ? String(task.reminderCustomMinutes) : ''}
+                  onChangeText={(v) => update({ reminderCustomMinutes: Math.max(1, parseInt(v, 10) || 1) })}
+                  placeholder="15"
+                  label={t('notifications.customMinutes')}
+                />
+              </View>
+            )}
           </View>
 
           {/* Estimated duration & Deadline row */}

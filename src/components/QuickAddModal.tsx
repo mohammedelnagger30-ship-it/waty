@@ -6,27 +6,33 @@ import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { ModalSheet } from './ModalSheet';
 import { Button } from './Button';
-import { Task } from '@/src/storage/entities';
-import { createDefaultTask } from '@/src/utils/taskUtils';
+import { Chip } from './Chip';
+import { Task, TaskPriority } from '@/src/storage/entities';
+import { createDefaultTask, allPriorities, priorityColors } from '@/src/utils/taskUtils';
 import { todayISODate } from '@/src/storage/repository';
+import { QuickTimeChips } from './QuickTimeChips';
 
 interface QuickAddModalProps {
   visible: boolean;
   onClose: () => void;
   onAdd: (task: Task) => void | Promise<void>;
-  onMoreDetails?: (title: string, time: string) => void;
+  onMoreDetails?: (title: string, date: string, time: string, priority: TaskPriority) => void;
 }
 
 export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickAddModalProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { t } = useI18n();
   const [title, setTitle] = useState('');
+  const [date, setDate] = useState(todayISODate());
   const [time, setTime] = useState('');
+  const [priority, setPriority] = useState<TaskPriority>('medium');
 
   useEffect(() => {
     if (visible) {
       setTitle('');
+      setDate(todayISODate());
       setTime('');
+      setPriority('medium');
     }
   }, [visible]);
 
@@ -34,8 +40,9 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
     if (!title.trim()) return;
     const task = createDefaultTask({
       title: title.trim(),
-      date: todayISODate(),
+      date,
       time: time.trim() || undefined,
+      priority,
     });
     // Wait for storage before closing so the new task is never "lost".
     await onAdd(task);
@@ -66,6 +73,22 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
           />
         </View>
 
+        <View style={styles.priorityRow}>
+          {allPriorities.map((p) => {
+            const colors = priorityColors[p];
+            return (
+              <Chip
+                key={p}
+                selected={priority === p}
+                color={isDark ? colors.dark : colors.light}
+                onPress={() => setPriority(p)}
+              >
+                {t(`tasks.priority.${p}` as Parameters<typeof t>[0])}
+              </Chip>
+            );
+          })}
+        </View>
+
         <View
           style={[
             styles.inputContainer,
@@ -87,8 +110,17 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
           />
         </View>
 
+        <QuickTimeChips
+          date={date}
+          time={time}
+          onSelect={(preset) => {
+            setDate(preset.date);
+            setTime(preset.time);
+          }}
+        />
+
         {onMoreDetails ? (
-          <Pressable onPress={() => onMoreDetails(title.trim(), time.trim())} style={styles.moreDetails}>
+          <Pressable onPress={() => onMoreDetails(title.trim(), date, time.trim(), priority)} style={styles.moreDetails}>
             <Text style={[styles.moreDetailsText, { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold }]}>
               {t('tasks.addDetails')}
             </Text>
@@ -116,6 +148,11 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
 const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
+  },
+  priorityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs + 2,
   },
   inputContainer: {
     flexDirection: 'row',

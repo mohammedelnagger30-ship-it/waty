@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
@@ -22,6 +22,7 @@ const TASK_ACTIONS = ['complete', 'postpone_hour', 'postpone_day'];
 
 export default function RootLayout() {
   useFrameworkReady();
+  const router = useRouter();
 
   // Preload the Arabic font in the background. The UI is never blocked on it:
   // expo-font re-renders automatically once the font is available, so the app
@@ -40,12 +41,16 @@ export default function RootLayout() {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as { taskId?: string } | undefined;
       const actionId = response.actionIdentifier;
-      if (data?.taskId && TASK_ACTIONS.includes(actionId)) {
+      if (!data?.taskId) return;
+      if (TASK_ACTIONS.includes(actionId)) {
         handleNotificationAction(actionId, data.taskId).catch(() => {});
+      } else {
+        // Tapping the notification body opens the related task directly.
+        router.push(`/tasks/${data.taskId}`);
       }
     });
     return () => subscription.remove();
-  }, []);
+  }, [router]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

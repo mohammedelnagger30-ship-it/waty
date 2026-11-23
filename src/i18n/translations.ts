@@ -104,6 +104,9 @@ export type TranslationKey =
   | 'pomodoro.focusTime'
   | 'pomodoro.focusMinutes'
   | 'pomodoro.estimatedMinutes'
+  | 'pomodoro.longBreakDuration'
+  | 'pomodoro.longBreak'
+  | 'pomodoro.autoStart'
   | 'plans.title'
   | 'plans.subtitle'
   | 'plans.noPlans'
@@ -216,6 +219,16 @@ export type TranslationKey =
   | 'tasks.addDetails'
   | 'tasks.mit'
   | 'tasks.mitLabel'
+  | 'tasks.quickTime'
+  | 'tasks.time.now'
+  | 'tasks.time.later'
+  | 'tasks.time.tomorrow'
+  | 'tasks.time.morning'
+  | 'tasks.time.evening'
+  | 'tasks.time.clear'
+  | 'tasks.reminder'
+  | 'tasks.reminder.none'
+  | 'tasks.reminder.default'
   | 'search.title'
   | 'search.subtitle'
   | 'search.placeholder'
@@ -551,6 +564,9 @@ export const translations: Record<Language, Translations> = {
     'pomodoro.focusTime': 'وقت التركيز',
     'pomodoro.focusMinutes': 'دقيقة تركيز',
     'pomodoro.estimatedMinutes': 'دقيقة مقدرة',
+    'pomodoro.longBreakDuration': 'الاستراحة الطويلة (بعد 4 جلسات)',
+    'pomodoro.longBreak': 'استراحة طويلة',
+    'pomodoro.autoStart': 'بدء المرحلة التالية تلقائياً',
     'plans.title': 'الخطط والأهداف',
     'plans.subtitle': 'خطط لنجاحك',
     'plans.noPlans': 'لا توجد خطط بعد',
@@ -663,6 +679,16 @@ export const translations: Record<Language, Translations> = {
     'tasks.addDetails': 'تفاصيل أكثر',
     'tasks.mit': 'الأهم اليوم',
     'tasks.mitLabel': 'أهم مهمة',
+    'tasks.quickTime': 'وقت سريع',
+    'tasks.time.now': 'الآن',
+    'tasks.time.later': 'بعد ساعة',
+    'tasks.time.tomorrow': 'الغد ٩ ص',
+    'tasks.time.morning': 'صباحاً ٩',
+    'tasks.time.evening': 'مساءً ٧',
+    'tasks.time.clear': 'بدون وقت',
+    'tasks.reminder': 'تذكير هذه المهمة',
+    'tasks.reminder.none': 'بدون تذكير',
+    'tasks.reminder.default': 'الافتراضي',
     'search.title': 'بحث شامل',
     'search.subtitle': 'ابحث في كل بياناتك',
     'search.placeholder': 'ابحث عن مهمة، هدف، خطة، عادة...',
@@ -995,6 +1021,9 @@ export const translations: Record<Language, Translations> = {
     'pomodoro.focusTime': 'Focus Time',
     'pomodoro.focusMinutes': 'focus minutes',
     'pomodoro.estimatedMinutes': 'estimated minutes',
+    'pomodoro.longBreakDuration': 'Long break (after 4 sessions)',
+    'pomodoro.longBreak': 'Long break',
+    'pomodoro.autoStart': 'Auto-start next phase',
     'plans.title': 'Plans & Goals',
     'plans.subtitle': 'Plan for your success',
     'plans.noPlans': 'No plans yet',
@@ -1107,6 +1136,16 @@ export const translations: Record<Language, Translations> = {
     'tasks.addDetails': 'More details',
     'tasks.mit': "Today's top priority",
     'tasks.mitLabel': 'Most important task',
+    'tasks.quickTime': 'Quick time',
+    'tasks.time.now': 'Now',
+    'tasks.time.later': 'In 1 hour',
+    'tasks.time.tomorrow': 'Tomorrow 9am',
+    'tasks.time.morning': '9am',
+    'tasks.time.evening': '7pm',
+    'tasks.time.clear': 'No time',
+    'tasks.reminder': 'Reminders for this task',
+    'tasks.reminder.none': 'No reminder',
+    'tasks.reminder.default': 'Default',
     'search.title': 'Global Search',
     'search.subtitle': 'Search across all your data',
     'search.placeholder': 'Search tasks, goals, plans, habits...',

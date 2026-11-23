@@ -18,9 +18,11 @@ import {
   pomodoroRepository,
   weeklyReviewRepository,
   reminderRepository,
+  settingsRepository,
+  notificationSettingsRepository,
 } from '@/src/storage';
 import { todayISODate } from '@/src/storage/repository';
-import { cancelAllReminders } from '@/src/notifications';
+import { cancelAllReminders, rescheduleAllNotifications } from '@/src/notifications';
 
 const BACKUP_KEYS = [
   'tasks',
@@ -31,9 +33,15 @@ const BACKUP_KEYS = [
   'pomodoros',
   'weeklyReviews',
   'reminders',
+  'settings',
+  'notif_settings',
 ] as const;
 
 type BackupKey = (typeof BACKUP_KEYS)[number];
+
+// Old backups (version 1) did not include settings; those keys stay optional
+// on import so an old backup never fails or wipes current preferences.
+const OPTIONAL_KEYS: BackupKey[] = ['settings', 'notif_settings'];
 
 const repositories: Record<BackupKey, { getAll: () => Promise<unknown[]>; replaceAll: (items: never[]) => Promise<void> }> = {
   tasks: taskRepository as never,
@@ -44,6 +52,8 @@ const repositories: Record<BackupKey, { getAll: () => Promise<unknown[]>; replac
   pomodoros: pomodoroRepository as never,
   weeklyReviews: weeklyReviewRepository as never,
   reminders: reminderRepository as never,
+  settings: settingsRepository as never,
+  notif_settings: notificationSettingsRepository as never,
 };
 
 export default function DataScreen() {
@@ -63,7 +73,7 @@ export default function DataScreen() {
       );
       const payload = {
         app: 'waqty',
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         data: Object.fromEntries(collections),
       };
@@ -103,17 +113,22 @@ export default function DataScreen() {
       const source = parsed?.data ?? parsed;
       if (!source || typeof source !== 'object') throw new Error('invalid');
 
-      const collections = BACKUP_KEYS.map((key) => {
+      const collections: Array<readonly [BackupKey, unknown[]]> = [];
+      for (const key of BACKUP_KEYS) {
         const value = source[key];
+        if (value === undefined && OPTIONAL_KEYS.includes(key)) continue;
         if (!Array.isArray(value)) throw new Error(`invalid:${key}`);
-        return [key, value] as const;
-      });
+        collections.push([key, value]);
+      }
 
       // Writes are sequential because repositories use read-modify-write.
       for (const [key, value] of collections) {
         await repositories[key].replaceAll(value as never[]);
       }
+      // Rebuild reminders from the imported tasks/settings instead of leaving
+      // the app with no notifications until the next edit.
       await cancelAllReminders().catch(() => {});
+      await rescheduleAllNotifications().catch(() => {});
       setStatus(t('data.success'));
       Alert.alert(t('data.title'), t('data.success'));
     } catch {
@@ -133,6 +148,9 @@ export default function DataScreen() {
           try {
             setBusy(true);
             for (const key of BACKUP_KEYS) {
+              // Keep language/theme/notification preferences so the app stays
+              // usable and the cached settings object matches storage.
+              if (OPTIONAL_KEYS.includes(key)) continue;
               await repositories[key].replaceAll([]);
             }
             await cancelAllReminders().catch(() => {});

@@ -1,8 +1,8 @@
 {
-  "version": "1.2.1",
-  "versionCode": 4,
-  "notes": "• التطبيق بيفتح على طول من غير شاشة تحميل\n• الخطوط بتتحمل في الخلفية من غير تعطيل الفتح",
-  "notesEn": "• The app now opens instantly with no loading screen\n• Fonts load in the background without blocking startup",
-  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.2.1/Orbit-release.apk",
-  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.2.1"
+  "version": "1.3.0",
+  "versionCode": 5,
+  "notes": "• تحديد الوقت بضغطة زر (الآن، بعد ساعة، الغد، صباحاً، مساءً)\n• تذكيرات مخصصة لكل مهمة\n• إضافات سريعة للأولوية والوقت من شاشة اليوم\n• مؤقت تركيز محسّن: استراحات طويلة وإعدادات محفوظة\n• 4 خطط جاهزة جديدة\n• فتح الإشعار يوصل للمهمة مباشرة\n• تحسين النسخ الاحتياطي وإحصائيات التركيز",
+  "notesEn": "• One-tap time presets (now, in 1 hour, tomorrow, morning, evening)\n• Per-task custom reminders\n• Quick priority and time picker from Today\n• Better Pomodoro: long breaks and saved settings\n• 4 new ready-made plans\n• Tapping a notification opens its task\n• Improved backup and focus-time stats",
+  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.3.0/Orbit-release.apk",
+  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.3.0"
 }

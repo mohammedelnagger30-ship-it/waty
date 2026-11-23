@@ -14,7 +14,7 @@ import { FilterBar } from '@/src/components/FilterBar';
 import { QuickAddModal } from '@/src/components/QuickAddModal';
 import { TaskFormModal } from '@/src/components/TaskFormModal';
 import { taskRepository } from '@/src/storage';
-import { Task, TaskStatus } from '@/src/storage/entities';
+import { Task, TaskStatus, TaskPriority } from '@/src/storage/entities';
 import { scheduleTaskReminders, cancelTaskReminders, rescheduleTaskReminders } from '@/src/notifications';
 import {
   FilterOptions,
@@ -140,10 +140,10 @@ export default function TasksScreen() {
     setShowForm(true);
   };
 
-  const handleMoreDetails = (title: string, time: string) => {
+  const handleMoreDetails = (title: string, date: string, time: string, priority: TaskPriority) => {
     setShowQuickAdd(false);
     setEditingTask(null);
-    setInitialTask(createDefaultTask({ title, time: time || undefined }));
+    setInitialTask(createDefaultTask({ title, date, time: time || undefined, priority }));
     setShowForm(true);
   };
 

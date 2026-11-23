@@ -76,6 +76,10 @@ export function defaultSettings(): Omit<Settings, 'id'> {
     autoRolloverEnabled: false,
     showHijriDate: false,
     simpleModeEnabled: false,
+    focusMinutes: 25,
+    breakMinutes: 5,
+    longBreakMinutes: 15,
+    autoStartNextPhase: false,
   };
 }
 

@@ -31,15 +31,16 @@ import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { taskRepository, settingsRepository } from '@/src/storage';
-import { Task, TaskStatus, Settings } from '@/src/storage/entities';
-import { scheduleTaskReminders, cancelTaskReminders } from '@/src/notifications';
+import { Task, TaskStatus, TaskPriority, Settings } from '@/src/storage/entities';
+import { scheduleTaskReminders, rescheduleTaskReminders, cancelTaskReminders } from '@/src/notifications';
 import { todayISODate } from '@/src/storage/repository';
 import { getHijriDate, getFullDateString, getGreeting } from '@/src/utils/dateUtils';
-import { priorityColors, categoryColors } from '@/src/utils/taskUtils';
+import { priorityColors, categoryColors, createDefaultTask } from '@/src/utils/taskUtils';
 import { runAutoRollover, shouldPromptRollover } from '@/src/utils/rolloverUtils';
 import { ProgressRing } from '@/src/components/ProgressRing';
-import { Card, EmptyState, Button } from '@/src/components';
+import { Card, EmptyState, Button, TaskFormModal } from '@/src/components';
 import { QuickAddModal } from '@/src/components/QuickAddModal';
+import { FocusTaskPickerModal } from '@/src/components/FocusTaskPickerModal';
 import { FAB } from '@/src/components/FAB';
 
 type ViewMode = 'timeline' | 'list';
@@ -55,6 +56,9 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('timeline');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [formTask, setFormTask] = useState<Task | null>(null);
+  const [showFocusPicker, setShowFocusPicker] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
 
   const loadTasks = useCallback(async () => {
@@ -84,6 +88,25 @@ export default function TodayScreen() {
   const handleAddTask = async (task: Task) => {
     await taskRepository.create(task);
     await notify(() => scheduleTaskReminders(task));
+    await loadTasks();
+  };
+
+  const handleMoreDetails = (title: string, date: string, time: string, priority: TaskPriority) => {
+    setShowQuickAdd(false);
+    setFormTask(createDefaultTask({ title, date, time: time || undefined, priority }));
+    setShowForm(true);
+  };
+
+  const handleSaveForm = async (task: Task) => {
+    const existing = await taskRepository.getById(task.id);
+    if (existing) {
+      await taskRepository.update(task.id, task);
+      await notify(() => rescheduleTaskReminders(task));
+    } else {
+      await taskRepository.create(task);
+      await notify(() => scheduleTaskReminders(task));
+    }
+    setFormTask(null);
     await loadTasks();
   };
 
@@ -415,7 +438,7 @@ export default function TodayScreen() {
           {renderQuickButton(
             <Focus size={22} color={theme.accent[500]} />,
             t('today.startFocus'),
-            () => router.push('/tasks'),
+            () => setShowFocusPicker(true),
             theme.accent[500],
           )}
           {renderQuickButton(
@@ -605,6 +628,21 @@ export default function TodayScreen() {
         visible={showQuickAdd}
         onClose={() => setShowQuickAdd(false)}
         onAdd={handleAddTask}
+        onMoreDetails={handleMoreDetails}
+      />
+
+      <TaskFormModal
+        visible={showForm}
+        onClose={() => { setShowForm(false); setFormTask(null); }}
+        onSave={handleSaveForm}
+        initialTask={formTask}
+      />
+
+      <FocusTaskPickerModal
+        visible={showFocusPicker}
+        onClose={() => setShowFocusPicker(false)}
+        tasks={tasks.filter((task) => task.status !== 'done' && task.status !== 'cancelled')}
+        onSelect={(task) => router.push(`/tasks/${task.id}`)}
       />
     </View>
   );

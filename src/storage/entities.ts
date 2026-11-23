@@ -51,6 +51,8 @@ export interface Task {
   originalDate?: string; // for postponed tasks
   rolloverCount?: number; // how many times auto-rolled over
   isMIT?: boolean; // Most Important Task flag
+  reminderOffsets?: ReminderOffset[]; // per-task overrides; undefined = use global defaults, [] = none
+  reminderCustomMinutes?: number; // used when 'custom' is selected
 }
 
 export interface Goal {
@@ -135,6 +137,10 @@ export interface Settings {
   autoRolloverEnabled: boolean;
   showHijriDate: boolean;
   simpleModeEnabled: boolean;
+  focusMinutes?: number;
+  breakMinutes?: number;
+  longBreakMinutes?: number;
+  autoStartNextPhase?: boolean;
 }
 
 export type ReminderOffset = 'at_time' | '5' | '10' | '15' | '30' | '60' | 'custom';
