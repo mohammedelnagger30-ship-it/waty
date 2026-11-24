@@ -22,7 +22,7 @@ class ApkInstallerModule(private val context: ReactApplicationContext) :
             if (!apk.exists()) return
             val uri = FileProvider.getUriForFile(
                 context,
-                "${context.packageName}.fileprovider",
+                "${context.packageName}.updateprovider",
                 apk,
             )
             val intent = Intent(Intent.ACTION_VIEW).apply {
