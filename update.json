@@ -1,6 +1,6 @@
 {
-  "version": "1.4.0",
-  "versionCode": 6,
+  "version": "1.4.1",
+  "versionCode": 7,
   "notes": "• منبه قوي عند موعد المهمة بـ٥ نغمات صوتية مختلفة واهتزازات مميزة لكل نغمة\n• معاينة المنبه جوه التطبيق قبل ما تختاره\n• قوالب مهام جاهزة: أنشئ قالب أو حوّل أي مهمة لقالب واستخدمه بضغطة زر\n• سجل التركيز: كل الجلسات مع الإجمالي والفلترة والتنظيم حسب اليوم\n• اقتراح تلقائي لأنسب مهمة دلوقتي في شاشة اليوم\n• تحميل التحديثات وتثبيتها من داخل التطبيق مع مؤشر نسبة التحميل، من غير فتح المتصفح\n• روابط سريعة للقوالب وسجل التركيز من الإعدادات والإحصائيات",
   "notesEn": "• Loud task-time alarm with 5 different tones, each with its own vibration pattern\n• Preview any alarm tone inside the app before choosing it\n• Task templates: create one, turn any task into a template, and reuse it with a tap\n• Focus history: all sessions with totals and per-day grouping\n• Smart suggestion for the best task to do right now on Today\n• Download and install updates directly inside the app with a progress indicator, no browser needed\n• New shortcuts to templates and focus history from Settings and Stats",
   "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.4.0/Orbit-release.apk",
