@@ -1,6 +1,6 @@
 {
-  "version": "1.4.2",
-  "versionCode": 8,
+  "version": "1.4.1",
+  "versionCode": 7,
   "notes": "• إيقاف الإشعارات المجدولة فعليًا عند تعطيل أي نوع من التذكيرات\n• تسريع فتح التطبيق وتقليل عمليات التخزين عند إعادة جدولة التنبيهات\n• إصلاح تكرار المهام عند إكمالها من شاشة اليوم أو المراجعة اليومية\n• تحسين مساحة شريط التبويبات على الأجهزة ذات شريط التنقل السفلي\n• تحديث داخل التطبيق أكثر موثوقية بمصدر موثوق وبصمة ملف وتعامل صحيح مع فشل التثبيت\n• إصلاح النسخ الاحتياطي والاستيراد لمراجعات الأسبوع وقوالب المهام\n• إصلاح انتقال المهام الشهرية من ٣١ يناير إلى فبراير\n• مؤقت تركيز أدق وأقل استهلاكًا للبطارية في الخلفية",
   "notesEn": "• Disabling a notification category now actually cancels its scheduled notifications\n• Faster startup with fewer storage operations when rebuilding reminders\n• Repeating tasks now create the next occurrence from Today or Daily Review\n• Better bottom-tab spacing on devices with a system navigation bar\n• More reliable in-app updates with authoritative manifest, checksum and correct install-failure handling\n• Backup/import fixes for weekly reviews and task templates\n• Monthly repeat dates no longer roll from Jan 31 to March\n• More accurate Pomodoro timing with less background battery use",
   "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.4.1/Orbit-release.apk",
