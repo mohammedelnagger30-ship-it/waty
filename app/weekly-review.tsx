@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Text, ScrollView, Pressable, Alert } from 'react-native';
-import { ArrowLeft, CheckCircle2, Target, Flame, Save, CalendarRange } from 'lucide-react-native';
+import { View, StyleSheet, Text, ScrollView, Pressable, Alert, Share, Platform } from 'react-native';
+import { ArrowLeft, CheckCircle2, Target, Flame, Save, CalendarRange, Sparkles, Copy } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
-import { spacing, typography } from '@/src/theme';
-import { Button, Card, Input, StatCard } from '@/src/components';
+import { spacing, typography, radius } from '@/src/theme';
+import { Button, Card, Chip, Input, StatCard } from '@/src/components';
 import {
   taskRepository,
   goalRepository,
@@ -18,6 +18,7 @@ import {
   nowISO,
 } from '@/src/storage';
 import type { Task, Goal, Habit, DailyReview, WeeklyReview, ReviewMood } from '@/src/storage/entities';
+import { buildWeeklySummary } from '@/src/utils/weeklySummary';
 
 function toISODate(d: Date): string {
   const y = d.getFullYear();
@@ -35,7 +36,7 @@ function getWeekStart(date: Date): Date {
 
 export default function WeeklyReviewScreen() {
   const { theme } = useTheme();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -47,6 +48,7 @@ export default function WeeklyReviewScreen() {
   const [whatToImprove, setWhatToImprove] = useState('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [summary, setSummary] = useState('');
 
   const weekStart = useMemo(() => getWeekStart(new Date()), []);
   const startStr = useMemo(() => toISODate(weekStart), [weekStart]);
@@ -74,6 +76,7 @@ export default function WeeklyReviewScreen() {
     setWhatWentWell(current?.whatWentWell ?? '');
     setWhatToImprove(current?.whatToImprove ?? '');
     setNote(current?.note ?? '');
+    setSummary('');
   }, [startStr]);
 
   useEffect(() => {
@@ -101,7 +104,7 @@ export default function WeeklyReviewScreen() {
     const moods: ReviewMood[] = reviews
       .filter((review) => review.date >= startStr && review.date <= endStr)
       .map((review) => review.mood);
-    return { completed, completionRate, goalProgress, habitRate, moods };
+    return { due: dueTasks.length, completed, completionRate, goalProgress, habitRate, moods };
   }, [tasks, goals, habits, reviews, startStr, endStr]);
 
   const handleSave = useCallback(async () => {
@@ -141,6 +144,46 @@ export default function WeeklyReviewScreen() {
     () => weeklyReviews.filter((r) => r.weekStart !== startStr).sort((a, b) => b.weekStart.localeCompare(a.weekStart)).slice(0, 6),
     [weeklyReviews, startStr],
   );
+
+  const appendPrompt = (
+    setter: (value: string | ((previous: string) => string)) => void,
+    key: TranslationKey,
+  ) => {
+    setter((current) => (current.trim() ? `${current}\n${t(key)}` : t(key)));
+  };
+
+  const handleGenerateSummary = useCallback(() => {
+    const text = buildWeeklySummary({
+      language,
+      startDate: startStr,
+      endDate: endStr,
+      completed: stats.completed,
+      due: stats.due,
+      completionRate: stats.completionRate,
+      goalProgress: stats.goalProgress,
+      habitRate: stats.habitRate,
+      moods: stats.moods,
+      wentWell: whatWentWell,
+      improve: whatToImprove,
+    });
+    setSummary(text);
+    setNote((current) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
+    Alert.alert(t('weekly.title'), t('weekly.summaryInNote'));
+  }, [language, startStr, endStr, stats, whatWentWell, whatToImprove, t]);
+
+  const handleShareSummary = useCallback(async () => {
+    if (!summary) return;
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(summary);
+      } else {
+        await Share.share({ message: summary });
+      }
+      Alert.alert(t('weekly.title'), t('weekly.summaryCopied'));
+    } catch {
+      // The user cancelled the share sheet — nothing to report.
+    }
+  }, [summary, t]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -196,6 +239,40 @@ export default function WeeklyReviewScreen() {
           />
         </View>
 
+        <Card style={styles.section}>
+          <View style={styles.summaryHeader}>
+            <Sparkles size={18} color={theme.accent[500]} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+              {t('weekly.summary')}
+            </Text>
+          </View>
+          <Text style={[styles.cardDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+            {t('weekly.summaryHint')}
+          </Text>
+          <Button
+            variant="outline"
+            onPress={handleGenerateSummary}
+            icon={<Sparkles size={16} color={theme.primary[600]} />}
+          >
+            {t('weekly.generate')}
+          </Button>
+          {summary ? (
+            <View style={[styles.summaryBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              <Text style={[styles.summaryText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                {summary}
+              </Text>
+              <Button
+                size="sm"
+                variant="ghost"
+                onPress={() => void handleShareSummary()}
+                icon={<Copy size={16} color={theme.primary[600]} />}
+              >
+                {t('weekly.copySummary')}
+              </Button>
+            </View>
+          ) : null}
+        </Card>
+
         {stats.moods.length > 0 ? (
           <Card style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
@@ -225,6 +302,11 @@ export default function WeeklyReviewScreen() {
             multiline
             numberOfLines={4}
           />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptRow}>
+            {(['weekly.prompt.well1', 'weekly.prompt.well2'] as TranslationKey[]).map((key) => (
+              <Chip key={key} onPress={() => appendPrompt(setWhatWentWell, key)}>{t(key)}</Chip>
+            ))}
+          </ScrollView>
           <Input
             label={t('weekly.improve')}
             value={whatToImprove}
@@ -233,6 +315,11 @@ export default function WeeklyReviewScreen() {
             multiline
             numberOfLines={4}
           />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptRow}>
+            {(['weekly.prompt.improve1', 'weekly.prompt.improve2'] as TranslationKey[]).map((key) => (
+              <Chip key={key} onPress={() => appendPrompt(setWhatToImprove, key)}>{t(key)}</Chip>
+            ))}
+          </ScrollView>
           <Input
             label={t('weekly.note')}
             value={note}
@@ -241,6 +328,11 @@ export default function WeeklyReviewScreen() {
             multiline
             numberOfLines={3}
           />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptRow}>
+            {(['weekly.prompt.note1'] as TranslationKey[]).map((key) => (
+              <Chip key={key} onPress={() => appendPrompt(setNote, key)}>{t(key)}</Chip>
+            ))}
+          </ScrollView>
           <Button onPress={handleSave} loading={saving} icon={<Save size={18} color="#FFFFFF" />}>
             {t('weekly.save')}
           </Button>
@@ -314,6 +406,16 @@ const styles = StyleSheet.create({
   },
   section: { marginBottom: spacing.md, gap: spacing.sm },
   sectionTitle: { fontSize: typography.sizes.md },
+  summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  cardDesc: { fontSize: typography.sizes.xs },
+  summaryBox: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  summaryText: { fontSize: typography.sizes.sm, lineHeight: 21 },
+  promptRow: { flexDirection: 'row', marginTop: -spacing.xs },
   moodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   moodChip: { paddingVertical: 4, paddingHorizontal: spacing.sm, borderRadius: 20 },
   moodText: { fontSize: typography.sizes.xs },

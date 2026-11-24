@@ -65,6 +65,9 @@ export function defaultNotificationSettings(): Omit<NotificationSettings, 'id'> 
     untimedTaskReminderEnabled: true,
     untimedTaskReminderTime: '16:00',
     alarmSound: 'bell',
+    weeklyBackupReminderEnabled: false,
+    weeklyBackupDay: 1,
+    weeklyBackupTime: '20:00',
   };
 }
 
@@ -90,6 +93,25 @@ export function defaultSettings(): Omit<Settings, 'id'> {
 // each other (e.g. theme saving over language or vice versa).
 let settingsInit: Promise<Settings> | null = null;
 let settingsWriteQueue: Promise<unknown> = Promise.resolve();
+const settingsListeners = new Set<(settings: Settings) => void>();
+
+/** Lets layout/navigation react to settings edits (e.g. tab order) immediately. */
+export function subscribeToSettings(listener: (settings: Settings) => void): () => void {
+  settingsListeners.add(listener);
+  return () => {
+    settingsListeners.delete(listener);
+  };
+}
+
+function notifySettingsChanged(settings: Settings): void {
+  settingsListeners.forEach((listener) => {
+    try {
+      listener(settings);
+    } catch {
+      // A failing listener must not block the settings write.
+    }
+  });
+}
 
 function queueSettingsWrite<T>(work: () => Promise<T>): Promise<T> {
   const result = settingsWriteQueue.then(work, work);
@@ -121,14 +143,11 @@ export const settingsRepository = {
   async save(settings: Omit<Settings, 'id'>): Promise<Settings> {
     return queueSettingsWrite(async () => {
       const existing = await this.getById(SETTINGS_ID);
-      if (existing) {
-        return (await this.update(SETTINGS_ID, settings))!;
-      }
-      const newSettings: Settings = {
-        ...settings,
-        id: SETTINGS_ID,
-      };
-      return this.create(newSettings);
+      const saved = existing
+        ? (await this.update(SETTINGS_ID, settings))!
+        : await this.create({ ...settings, id: SETTINGS_ID });
+      notifySettingsChanged(saved);
+      return saved;
     });
   },
 
@@ -136,10 +155,11 @@ export const settingsRepository = {
   async patch(updates: Partial<Omit<Settings, 'id'>>): Promise<Settings> {
     return queueSettingsWrite(async () => {
       const existing = await this.getById(SETTINGS_ID);
-      if (existing) {
-        return (await this.update(SETTINGS_ID, updates))!;
-      }
-      return this.create({ ...defaultSettings(), ...updates, id: SETTINGS_ID });
+      const saved = existing
+        ? (await this.update(SETTINGS_ID, updates))!
+        : await this.create({ ...defaultSettings(), ...updates, id: SETTINGS_ID });
+      notifySettingsChanged(saved);
+      return saved;
     });
   },
 

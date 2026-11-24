@@ -4,7 +4,7 @@ import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { Task, TaskReminder, ReminderOffset, NotificationSettings, AlarmSoundId } from '@/src/storage/entities';
 import { taskRepository, reminderRepository, notificationSettingsRepository, habitRepository } from '@/src/storage';
 import { generateId } from '@/src/storage/repository';
-import { completeRepeatingTask } from '@/src/utils/taskUtils';
+import { completeRepeatingTask, getUnmetDependencies } from '@/src/utils/taskUtils';
 import { ALARM_PRESETS, getAlarmPreset } from './alarmOptions';
 
 // --- Notification channel setup ---
@@ -141,6 +141,11 @@ export async function registerNotificationCategories(): Promise<void> {
     buttonTitle: 'أجّل ساعة',
     options: { opensAppToForeground: false },
   };
+  const postponeTenAction: Notifications.NotificationAction = {
+    identifier: 'postpone_ten',
+    buttonTitle: 'بعد ١٠ دقائق',
+    options: { opensAppToForeground: false },
+  };
   const postponeDayAction: Notifications.NotificationAction = {
     identifier: 'postpone_day',
     buttonTitle: 'رحّلها لبكرة',
@@ -149,6 +154,7 @@ export async function registerNotificationCategories(): Promise<void> {
 
   await Notifications.setNotificationCategoryAsync('task_reminder', [
     completeAction,
+    postponeTenAction,
     postponeHourAction,
     postponeDayAction,
   ]);
@@ -493,6 +499,38 @@ export async function scheduleHabitReminders(): Promise<void> {
   });
 }
 
+// --- Weekly backup reminder ---
+
+const WEEKLY_BACKUP_ID = 'weekly_backup_reminder';
+
+/** Nudges once a week to export a backup before data is lost. */
+export async function scheduleWeeklyBackupReminder(): Promise<void> {
+  const settings = await notificationSettingsRepository.getOrCreate();
+  if (!settings.enabled || !settings.weeklyBackupReminderEnabled) {
+    await Notifications.cancelScheduledNotificationAsync(WEEKLY_BACKUP_ID);
+    return;
+  }
+
+  const [h, m] = (settings.weeklyBackupTime ?? '20:00').split(':').map(Number);
+  await Notifications.cancelScheduledNotificationAsync(WEEKLY_BACKUP_ID);
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'وقت النسخة الاحتياطية 💾',
+      body: 'صدّر نسخة من بياناتك عشان لا تضيع',
+      data: { type: 'weekly_backup' },
+      sound: settings.soundEnabled ? 'default' : undefined,
+      ...(Platform.OS === 'android' ? { channelId: NOTIF_CHANNELS.summary } : {}),
+    },
+    trigger: {
+      type: SchedulableTriggerInputTypes.WEEKLY,
+      weekday: Math.min(7, Math.max(1, settings.weeklyBackupDay ?? 1)),
+      hour: Number.isFinite(h) ? Math.min(Math.max(h, 0), 23) : 20,
+      minute: Number.isFinite(m) ? Math.min(Math.max(m, 0), 59) : 0,
+    },
+    identifier: WEEKLY_BACKUP_ID,
+  });
+}
+
 // --- Reschedule everything ---
 
 const UNTIMED_NUDGE_ID = 'untimed_task_nudge';
@@ -571,6 +609,7 @@ export async function rescheduleAllNotifications(): Promise<void> {
     await Notifications.cancelScheduledNotificationAsync('overdue_check');
     await Notifications.cancelScheduledNotificationAsync('habit_reminder');
     await Notifications.cancelScheduledNotificationAsync(UNTIMED_NUDGE_ID);
+    await Notifications.cancelScheduledNotificationAsync(WEEKLY_BACKUP_ID);
     return;
   }
 
@@ -630,6 +669,7 @@ export async function rescheduleAllNotifications(): Promise<void> {
   await scheduleOverdueCheck();
   await scheduleHabitReminders();
   await scheduleUntimedTaskNudge();
+  await scheduleWeeklyBackupReminder();
 }
 
 // --- Action handler ---
@@ -650,6 +690,8 @@ export async function handleNotificationAction(
 
   switch (actionId) {
     case 'complete': {
+      const allTasks = await taskRepository.getAll();
+      if (getUnmetDependencies(task, allTasks).length) return;
       const { nextOccurrence, completed } = completeRepeatingTask(task);
       await taskRepository.update(task.id, completed);
       await cancelTaskReminders(task.id);
@@ -659,19 +701,21 @@ export async function handleNotificationAction(
       }
       break;
     }
+    case 'postpone_ten':
     case 'postpone_hour': {
+      const minutes = actionId === 'postpone_ten' ? 10 : 60;
       let updates: Partial<Task>;
       if (task.time) {
         const [h, m] = task.time.split(':').map(Number);
         const d = new Date(`${task.date}T00:00:00`);
-        d.setHours(h + 1, m, 0, 0);
+        d.setHours(h, m + minutes, 0, 0);
         updates = {
           time: `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`,
           date: localDateString(d),
         };
       } else {
         const d = new Date(`${task.date}T00:00:00`);
-        d.setHours(d.getHours() + 1);
+        d.setMinutes(d.getMinutes() + minutes);
         updates = { date: localDateString(d) };
       }
       const updated = await taskRepository.update(task.id, updates);

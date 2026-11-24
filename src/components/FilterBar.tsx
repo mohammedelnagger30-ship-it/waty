@@ -6,7 +6,8 @@ import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { Chip } from './Chip';
 import { Button } from './Button';
-import { TaskPriority, TaskStatus, TaskCategory } from '@/src/storage/entities';
+import { TaskPriority, TaskStatus, TaskCategory, SavedFilter } from '@/src/storage/entities';
+import { settingsRepository, generateId } from '@/src/storage';
 import {
   allCategories,
   allPriorities,
@@ -35,10 +36,18 @@ export function FilterBar({ filters, onFiltersChange, sort, onSortChange }: Filt
   const [showSort, setShowSort] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [localFilters, setLocalFilters] = useState<FilterOptions>(filters);
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+  const [filterName, setFilterName] = useState('');
 
   useEffect(() => {
     setLocalFilters(filters);
   }, [filters]);
+
+  useEffect(() => {
+    void settingsRepository.getOrCreate().then((settings) => {
+      setSavedFilters(settings.savedFilters ?? []);
+    });
+  }, []);
 
   const hasActiveFilters =
     filters.category !== 'all' || filters.priority !== 'all' || filters.status !== 'all';
@@ -57,6 +66,37 @@ export function FilterBar({ filters, onFiltersChange, sort, onSortChange }: Filt
 
   const clearFilters = () => {
     onFiltersChange(defaultFilters);
+    setShowFilter(false);
+  };
+
+  const persistSavedFilters = async (next: SavedFilter[]) => {
+    setSavedFilters(next);
+    await settingsRepository.patch({ savedFilters: next });
+  };
+
+  const handleSaveFilter = async () => {
+    const name = filterName.trim() || t('filters.untitled');
+    const preset: SavedFilter = {
+      id: generateId(),
+      name,
+      search: localFilters.search,
+      category: localFilters.category,
+      priority: localFilters.priority,
+      status: localFilters.status,
+      sort,
+    };
+    await persistSavedFilters([...savedFilters.filter((item) => item.name !== name), preset]);
+    setFilterName('');
+  };
+
+  const applySavedFilter = (preset: SavedFilter) => {
+    onFiltersChange({
+      search: preset.search,
+      category: preset.category,
+      priority: preset.priority,
+      status: preset.status,
+    });
+    onSortChange(preset.sort);
     setShowFilter(false);
   };
 
@@ -251,6 +291,42 @@ export function FilterBar({ filters, onFiltersChange, sort, onSortChange }: Filt
               ))}
             </View>
 
+            {/* Saved filter presets */}
+            <Text style={[styles.filterLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold, marginTop: spacing.lg }]}>
+              {t('filters.saved')}
+            </Text>
+            <View style={styles.saveRow}>
+              <TextInput
+                value={filterName}
+                onChangeText={setFilterName}
+                placeholder={t('filters.namePlaceholder')}
+                placeholderTextColor={theme.text.tertiary}
+                style={[styles.saveInput, { color: theme.text.primary, borderColor: theme.border, fontFamily: typography.fontFamily }]}
+              />
+              <Button variant="secondary" onPress={() => void handleSaveFilter()}>
+                {t('filters.save')}
+              </Button>
+            </View>
+            {savedFilters.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.savedRow}>
+                {savedFilters.map((preset) => (
+                  <View key={preset.id} style={[styles.savedChip, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                    <Pressable onPress={() => applySavedFilter(preset)} hitSlop={6}>
+                      <Text style={[styles.savedChipText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                        {preset.name}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void persistSavedFilters(savedFilters.filter((item) => item.id !== preset.id))}
+                      hitSlop={8}
+                    >
+                      <X size={13} color={theme.text.tertiary} />
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+
             {/* Actions */}
             <View style={styles.filterActions}>
               <Button variant="ghost" onPress={clearFilters}>
@@ -366,6 +442,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs + 2,
+  },
+  saveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  saveInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    fontSize: typography.sizes.sm,
+  },
+  savedRow: {
+    flexDirection: 'row',
+    marginTop: spacing.sm,
+  },
+  savedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    marginEnd: spacing.xs,
+  },
+  savedChipText: {
+    fontSize: typography.sizes.xs,
   },
   filterActions: {
     flexDirection: 'row',

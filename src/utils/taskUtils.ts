@@ -167,6 +167,165 @@ export function sortTasks(tasks: Task[], sort: SortOption): Task[] {
   return sorted;
 }
 
+/** Follows the `dependsOn` graph; used to reject circular dependencies. */
+export function dependsOnReaches(fromId: string, targetId: string, tasks: Task[]): boolean {
+  const seen = new Set<string>();
+  const walk = (id: string): boolean => {
+    if (id === targetId) return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    const task = tasks.find((item) => item.id === id);
+    return (task?.dependsOn ?? []).some(walk);
+  };
+  return walk(fromId);
+}
+
+/** Returns blockers that are not done yet. */
+export function getUnmetDependencies(task: Task, tasks: Task[]): Task[] {
+  return (task.dependsOn ?? [])
+    .map((id) => tasks.find((item) => item.id === id))
+    .filter((item): item is Task => !!item && item.status !== 'done');
+}
+
+/** Tasks waiting on this one, used by the detail screen's "blocks" section. */
+export function getTasksBlockedBy(taskId: string, tasks: Task[]): Task[] {
+  return tasks.filter((task) => (task.dependsOn ?? []).includes(taskId));
+}
+
+export type MatrixKey = 'do' | 'schedule' | 'delegate' | 'eliminate';
+
+export interface MatrixGroup {
+  key: MatrixKey;
+  tasks: Task[];
+}
+
+/**
+ * Eisenhower matrix derived from priority/MIT and date — no extra fields or
+ * storage. "Urgent" means due today or overdue.
+ */
+export function buildPriorityMatrix(tasks: Task[], now: Date = new Date()): MatrixGroup[] {
+  const today = toLocalDateKey(now);
+  const groups: Record<MatrixKey, Task[]> = {
+    do: [],
+    schedule: [],
+    delegate: [],
+    eliminate: [],
+  };
+
+  tasks
+    .filter((task) => task.status !== 'done' && task.status !== 'cancelled')
+    .forEach((task) => {
+      const urgent = task.date <= today;
+      const important = task.priority === 'high' || task.isMIT === true;
+      const key: MatrixKey = urgent
+        ? (important ? 'do' : 'delegate')
+        : (important ? 'schedule' : 'eliminate');
+      groups[key].push(task);
+    });
+
+  return (['do', 'schedule', 'delegate', 'eliminate'] as MatrixKey[])
+    .map((key) => ({ key, tasks: groups[key] }))
+    .filter((group) => group.tasks.length > 0);
+}
+
+function minutesFromTime(time: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+/**
+ * Maps task ids to the ids of timed tasks that overlap them on the same day.
+ * Tasks without a time, done tasks and cancelled tasks are ignored.
+ */
+export function findScheduleConflicts(tasks: Task[]): Record<string, string[]> {
+  const timed = tasks
+    .filter((task) => task.status !== 'done' && task.status !== 'cancelled' && task.time)
+    .map((task) => {
+      const start = minutesFromTime(task.time!);
+      return start === null ? null : {
+        task,
+        start,
+        end: start + Math.max(15, task.estimatedMinutes ?? 30),
+      };
+    })
+    .filter((item): item is { task: Task; start: number; end: number } => item !== null);
+
+  const conflicts: Record<string, string[]> = {};
+  for (let i = 0; i < timed.length; i += 1) {
+    for (let j = i + 1; j < timed.length; j += 1) {
+      const a = timed[i];
+      const b = timed[j];
+      if (a.task.date !== b.task.date) continue;
+      if (a.start < b.end && b.start < a.end) {
+        (conflicts[a.task.id] ??= []).push(b.task.id);
+        (conflicts[b.task.id] ??= []).push(a.task.id);
+      }
+    }
+  }
+  return conflicts;
+}
+
+export interface ScheduleFix {
+  id: string;
+  time: string;
+  previousTime: string;
+}
+
+function formatMinutes(minutes: number): string {
+  const safe = Math.max(0, Math.min(23 * 60 + 45, minutes));
+  return `${String(Math.floor(safe / 60)).padStart(2, '0')}:${String(safe % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Pushes overlapping timed tasks to the next free slot on the same day.
+ * Earlier tasks keep their time; high-priority/MIT tasks win ties. Only tasks
+ * involved in a conflict are touched, and nothing is moved to a different day.
+ */
+export function resolveScheduleConflicts(tasks: Task[]): ScheduleFix[] {
+  const conflicts = findScheduleConflicts(tasks);
+  if (!Object.keys(conflicts).length) return [];
+
+  // Include every timed task on affected days: a task that did not clash
+  // originally can start clashing after an earlier task is pushed back.
+  const byDate = new Map<string, Task[]>();
+  tasks.forEach((task) => {
+    if (task.status === 'done' || task.status === 'cancelled') return;
+    if (!task.time || minutesFromTime(task.time) === null) return;
+    const list = byDate.get(task.date) ?? [];
+    list.push(task);
+    byDate.set(task.date, list);
+  });
+
+  const fixes: ScheduleFix[] = [];
+  byDate.forEach((dayTasks) => {
+    const ordered = [...dayTasks].sort((a, b) => {
+      const timeDiff = (a.time ?? '').localeCompare(b.time ?? '');
+      if (timeDiff) return timeDiff;
+      const importance = (task: Task) => (task.isMIT ? 2 : 0) + (task.priority === 'high' ? 1 : 0);
+      const importanceDiff = importance(b) - importance(a);
+      if (importanceDiff) return importanceDiff;
+      return a.id.localeCompare(b.id);
+    });
+
+    let cursor = -1;
+    ordered.forEach((task) => {
+      const desired = minutesFromTime(task.time!)!;
+      const duration = Math.max(15, task.estimatedMinutes ?? 30);
+      const start = Math.min(23 * 60 + 45, Math.max(desired, cursor));
+      if (start !== desired) {
+        fixes.push({ id: task.id, previousTime: task.time!, time: formatMinutes(start) });
+      }
+      cursor = start + duration;
+    });
+  });
+
+  return fixes;
+}
+
 export interface FilterOptions {
   search: string;
   category: TaskCategory | 'all';

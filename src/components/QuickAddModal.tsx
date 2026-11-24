@@ -11,6 +11,7 @@ import { Task, TaskPriority } from '@/src/storage/entities';
 import { createDefaultTask, allPriorities, priorityColors } from '@/src/utils/taskUtils';
 import { todayISODate } from '@/src/storage/repository';
 import { QuickTimeChips } from './QuickTimeChips';
+import { parseSmartInput } from '@/src/utils/smartInput';
 
 interface QuickAddModalProps {
   visible: boolean;
@@ -26,6 +27,7 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
   const [date, setDate] = useState(todayISODate());
   const [time, setTime] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
+  const [detected, setDetected] = useState<string[]>([]);
 
   useEffect(() => {
     if (visible) {
@@ -33,15 +35,25 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
       setDate(todayISODate());
       setTime('');
       setPriority('medium');
+      setDetected([]);
     }
   }, [visible]);
 
+  const handleTitleChange = (value: string) => {
+    setTitle(value);
+    const parsed = parseSmartInput(value);
+    setDetected(parsed.detected);
+    if (parsed.date) setDate(parsed.date);
+    if (parsed.time) setTime(parsed.time);
+  };
+
   const handleAdd = async () => {
     if (!title.trim()) return;
+    const parsed = parseSmartInput(title);
     const task = createDefaultTask({
-      title: title.trim(),
-      date,
-      time: time.trim() || undefined,
+      title: (parsed.title || title).trim(),
+      date: parsed.date ?? date,
+      time: (parsed.time ?? time).trim() || undefined,
       priority,
     });
     // Wait for storage before closing so the new task is never "lost".
@@ -64,7 +76,7 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
         >
           <TextInput
             value={title}
-            onChangeText={setTitle}
+            onChangeText={handleTitleChange}
             placeholder={t('tasks.quickAddPlaceholder')}
             placeholderTextColor={theme.text.tertiary}
             autoFocus
@@ -72,6 +84,18 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
             onSubmitEditing={handleAdd}
           />
         </View>
+
+        {detected.length > 0 ? (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.detected,
+              { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold },
+            ]}
+          >
+            ✓ {detected.join('  •  ')}
+          </Text>
+        ) : null}
 
         <View style={styles.priorityRow}>
           {allPriorities.map((p) => {
@@ -120,7 +144,18 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
         />
 
         {onMoreDetails ? (
-          <Pressable onPress={() => onMoreDetails(title.trim(), date, time.trim(), priority)} style={styles.moreDetails}>
+          <Pressable
+            onPress={() => {
+              const parsed = parseSmartInput(title);
+              onMoreDetails(
+                (parsed.title || title).trim(),
+                parsed.date ?? date,
+                (parsed.time ?? time).trim(),
+                priority,
+              );
+            }}
+            style={styles.moreDetails}
+          >
             <Text style={[styles.moreDetailsText, { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold }]}>
               {t('tasks.addDetails')}
             </Text>
@@ -148,6 +183,10 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
 const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
+  },
+  detected: {
+    fontSize: typography.sizes.sm,
+    marginTop: -spacing.sm,
   },
   priorityRow: {
     flexDirection: 'row',

@@ -1,4 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -25,19 +27,23 @@ import {
   ClipboardList,
   CalendarDays,
   Sparkles,
+  GripVertical,
+  AlertTriangle,
+  Check,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
-import { taskRepository, settingsRepository } from '@/src/storage';
-import { Task, TaskStatus, TaskPriority, Settings } from '@/src/storage/entities';
+import { taskRepository, settingsRepository, habitRepository } from '@/src/storage';
+import { Task, TaskStatus, TaskPriority, Settings, Habit } from '@/src/storage/entities';
 import { scheduleTaskReminders, rescheduleTaskReminders, cancelTaskReminders } from '@/src/notifications';
 import { todayISODate } from '@/src/storage/repository';
 import { getHijriDate, getFullDateString, getGreeting } from '@/src/utils/dateUtils';
-import { priorityColors, categoryColors, createDefaultTask, completeRepeatingTask } from '@/src/utils/taskUtils';
+import { priorityColors, categoryColors, createDefaultTask, completeRepeatingTask, getUnmetDependencies, findScheduleConflicts } from '@/src/utils/taskUtils';
 import { runAutoRollover, shouldPromptRollover } from '@/src/utils/rolloverUtils';
+import { isHabitCompletedOn, isHabitDueOn, toggleHabitDate } from '@/src/utils/habitUtils';
 import { ProgressRing } from '@/src/components/ProgressRing';
 import { Card, EmptyState, Button, TaskFormModal } from '@/src/components';
 import { QuickAddModal } from '@/src/components/QuickAddModal';
@@ -46,6 +52,36 @@ import { FAB } from '@/src/components/FAB';
 
 type ViewMode = 'timeline' | 'list';
 
+const ROW_HEIGHT = 112;
+
+/** Vertical drag handle used only in the Today list view. */
+function DragHandle({ onMove, color }: { onMove: (delta: number) => void; color: string }) {
+  const translateY = useSharedValue(0);
+  const gesture = Gesture.Pan()
+    .activeOffsetY([-8, 8])
+    .failOffsetX([-14, 14])
+    .onUpdate((event) => {
+      translateY.value = event.translationY;
+    })
+    .onEnd((event) => {
+      const delta = Math.round(event.translationY / ROW_HEIGHT);
+      translateY.value = withTiming(0, { duration: 160 });
+      if (delta !== 0) runOnJS(onMove)(delta);
+    })
+    .onFinalize(() => {
+      translateY.value = withTiming(0, { duration: 160 });
+    });
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <Animated.View style={[styles.dragHandle, style]}>
+        <GripVertical size={18} color={color} />
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
 export default function TodayScreen() {
   const { theme, isDark } = useTheme();
   const { t, language, isRTL } = useI18n();
@@ -53,6 +89,7 @@ export default function TodayScreen() {
   const insets = useSafeAreaInsets();
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('timeline');
@@ -68,8 +105,12 @@ export default function TodayScreen() {
 
     await runAutoRollover();
 
-    const all = await taskRepository.getAll();
+    const [all, storedHabits] = await Promise.all([
+      taskRepository.getAll(),
+      habitRepository.getAll(),
+    ]);
     setTasks(all);
+    setHabits(storedHabits);
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -112,6 +153,11 @@ export default function TodayScreen() {
   };
 
   const handleComplete = async (task: Task) => {
+    const blockers = getUnmetDependencies(task, tasks);
+    if (blockers.length) {
+      Alert.alert(t('tasks.blockedTitle'), `${t('tasks.blockedMsg')} ${blockers.map((item) => item.title).join('، ')}`);
+      return;
+    }
     if (task.status !== 'done') {
       const { nextOccurrence, completed } = completeRepeatingTask(task);
       if (nextOccurrence) {
@@ -132,6 +178,12 @@ export default function TodayScreen() {
     }
     await taskRepository.update(task.id, { isMIT: !task.isMIT });
     await loadTasks();
+  };
+
+  const handleToggleHabit = async (habit: Habit) => {
+    const day = todayISODate();
+    const updated = await habitRepository.update(habit.id, toggleHabitDate(habit, day));
+    if (updated) setHabits((current) => current.map((item) => (item.id === updated.id ? updated : item)));
   };
 
   const handleRolloverPrompt = (task: Task) => {
@@ -156,6 +208,10 @@ export default function TodayScreen() {
   };
 
   const today = todayISODate();
+  const dueHabits = useMemo(
+    () => habits.filter((habit) => isHabitDueOn(habit, today)),
+    [habits, today],
+  );
 
   const todayTasks = useMemo(() => {
     return tasks.filter((t) => t.date === today && t.status !== 'cancelled');
@@ -166,12 +222,21 @@ export default function TodayScreen() {
   }, [todayTasks]);
 
   const activeTasks = useMemo(() => {
-    return todayTasks.filter((t) => t.status !== 'done');
+    return todayTasks
+      .filter((t) => t.status !== 'done')
+      .sort((a, b) => {
+        const ao = a.order ?? Number.MAX_SAFE_INTEGER;
+        const bo = b.order ?? Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return (a.time ?? '99:99').localeCompare(b.time ?? '99:99');
+      });
   }, [todayTasks]);
 
   const mitTasks = useMemo(() => {
     return activeTasks.filter((t) => t.isMIT).slice(0, 3);
   }, [activeTasks]);
+
+  const scheduleConflicts = useMemo(() => findScheduleConflicts(todayTasks), [todayTasks]);
 
   const progress = todayTasks.length > 0
     ? (completedTasks.length / todayTasks.length) * 100
@@ -234,7 +299,26 @@ export default function TodayScreen() {
     return groups;
   }, [timedTasks]);
 
-  const renderTaskRow = (task: Task) => {
+  const handleReorder = (task: Task, delta: number) => {
+    const current = [...activeTasks];
+    const from = current.findIndex((item) => item.id === task.id);
+    if (from < 0) return;
+    const to = Math.max(0, Math.min(current.length - 1, from + delta));
+    if (to === from) return;
+    const [moved] = current.splice(from, 1);
+    current.splice(to, 0, moved);
+    setTasks((previous) =>
+      previous.map((item) => {
+        const index = current.findIndex((reordered) => reordered.id === item.id);
+        return index >= 0 ? { ...item, order: index } : item;
+      }),
+    );
+    current.forEach((item, index) => {
+      void taskRepository.update(item.id, { order: index }).catch(() => {});
+    });
+  };
+
+  const renderTaskRow = (task: Task, reorderable = false) => {
     const pColor = priorityColors[task.priority];
     const color = isDark ? pColor.dark : pColor.light;
     const catColor = categoryColors[task.category];
@@ -249,6 +333,13 @@ export default function TodayScreen() {
           { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.85 : 1 },
         ]}
       >
+        {reorderable && !isDone ? (
+          <DragHandle
+            color={theme.text.tertiary}
+            onMove={(delta) => handleReorder(task, delta)}
+          />
+        ) : null}
+
         <Pressable
           hitSlop={8}
           onPress={() => !isDone && handleComplete(task)}
@@ -298,6 +389,14 @@ export default function TodayScreen() {
                 </Text>
               </Pressable>
             )}
+            {(scheduleConflicts[task.id]?.length ?? 0) > 0 && (
+              <View style={[styles.taskConflictBadge, { backgroundColor: theme.warningSoft }]}>
+                <AlertTriangle size={11} color={theme.warning} />
+                <Text style={[styles.taskMetaText, { color: theme.warning, fontFamily: typography.fontFamilySemiBold }]}>
+                  {t('tasks.scheduleConflict')}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -332,7 +431,7 @@ export default function TodayScreen() {
           </Text>
         </View>
         <View style={styles.timelineTasks}>
-          {hourTasks.map(renderTaskRow)}
+          {hourTasks.map((task) => renderTaskRow(task))}
         </View>
       </View>
     );
@@ -550,6 +649,64 @@ export default function TodayScreen() {
           </Card>
         )}
 
+        {/* Quick habit check-in */}
+        {dueHabits.length > 0 ? (
+          <View style={[styles.habitCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.habitHeader}>
+              <CheckCircle2 size={18} color={theme.success} />
+              <View style={styles.habitHeaderText}>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+                  {t('today.habits')}
+                </Text>
+                <Text style={[styles.sectionDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                  {t('today.habitsHint')}
+                </Text>
+              </View>
+              <Text style={[styles.habitCount, { color: theme.success, fontFamily: typography.fontFamilySemiBold }]}>
+                {dueHabits.filter((habit) => isHabitCompletedOn(habit, today)).length}/{dueHabits.length}
+              </Text>
+            </View>
+            <View style={styles.habitChips}>
+              {dueHabits.map((habit) => {
+                const done = isHabitCompletedOn(habit, today);
+                const color = habit.color ?? theme.success;
+                return (
+                  <Pressable
+                    key={habit.id}
+                    onPress={() => void handleToggleHabit(habit)}
+                    style={({ pressed }) => [
+                      styles.habitChip,
+                      {
+                        borderColor: done ? color : theme.border,
+                        backgroundColor: done ? color + '1F' : theme.surfaceSecondary,
+                        opacity: pressed ? 0.75 : 1,
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={habit.title}
+                  >
+                    <View style={[
+                      styles.habitCheck,
+                      { borderColor: done ? color : theme.text.tertiary, backgroundColor: done ? color : 'transparent' },
+                    ]}>
+                      {done ? <Check size={11} color="#FFFFFF" strokeWidth={3} /> : null}
+                    </View>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.habitChipText,
+                        { color: done ? color : theme.text.secondary, fontFamily: typography.fontFamilySemiBold },
+                      ]}
+                    >
+                      {habit.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
         {/* View Toggle */}
         <View style={styles.viewToggleRow}>
           <Pressable
@@ -614,7 +771,7 @@ export default function TodayScreen() {
                 <Text style={[styles.untimedLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
                   {t('today.allDay')}
                 </Text>
-                {untimedTasks.map(renderTaskRow)}
+                {untimedTasks.map((task) => renderTaskRow(task))}
               </View>
             )}
 
@@ -624,19 +781,24 @@ export default function TodayScreen() {
                 <Text style={[styles.untimedLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
                   {t('review.completed')} ({completedTasks.length})
                 </Text>
-                {completedTasks.map(renderTaskRow)}
+                {completedTasks.map((task) => renderTaskRow(task))}
               </View>
             )}
           </View>
         ) : (
           <View style={styles.listContainer}>
-            {activeTasks.map(renderTaskRow)}
+            {activeTasks.length > 1 && (
+              <Text style={[styles.reorderHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('today.reorderHint')}
+              </Text>
+            )}
+            {activeTasks.map((task) => renderTaskRow(task, true))}
             {completedTasks.length > 0 && (
               <View style={styles.untimedSection}>
                 <Text style={[styles.untimedLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
                   {t('review.completed')} ({completedTasks.length})
                 </Text>
-                {completedTasks.map(renderTaskRow)}
+                {completedTasks.map((task) => renderTaskRow(task))}
               </View>
             )}
           </View>
@@ -852,6 +1014,44 @@ const styles = StyleSheet.create({
   sectionDesc: {
     fontSize: 12,
   },
+  habitCard: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  habitHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  habitHeaderText: { flex: 1, gap: 2 },
+  habitCount: { fontSize: typography.sizes.sm },
+  habitChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs + 2,
+  },
+  habitChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingVertical: 5,
+    paddingHorizontal: spacing.sm,
+    maxWidth: '100%',
+  },
+  habitCheck: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  habitChipText: { fontSize: typography.sizes.xs, flexShrink: 1 },
   mitCard: {
     marginBottom: spacing.md,
     paddingVertical: 2,
@@ -941,6 +1141,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm + 2,
     borderWidth: 1,
   },
+  dragHandle: {
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    justifyContent: 'center',
+  },
+  reorderHint: {
+    fontSize: typography.sizes.xs,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
   checkbox: {
     width: 18,
     height: 18,
@@ -988,6 +1198,14 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 3,
+  },
+  taskConflictBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 2,
+    paddingHorizontal: spacing.xs + 2,
+    borderRadius: radius.pill,
   },
   rolloverBadge: {
     paddingVertical: 2,

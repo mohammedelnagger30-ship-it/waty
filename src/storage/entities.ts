@@ -51,6 +51,10 @@ export interface Task {
   originalDate?: string; // for postponed tasks
   rolloverCount?: number; // how many times auto-rolled over
   isMIT?: boolean; // Most Important Task flag
+  /** Manual order for the Today list. Tasks without an order keep time sorting. */
+  order?: number;
+  /** Task ids that must be completed before this task can be marked done. */
+  dependsOn?: string[];
   reminderOffsets?: ReminderOffset[]; // per-task overrides; undefined = use global defaults, [] = none
   reminderCustomMinutes?: number; // used when 'custom' is selected
   /** Alarm tone used for the "at time" reminder. Falls back to global setting. */
@@ -146,6 +150,16 @@ export interface DailyReview {
   updatedAt: string;
 }
 
+export interface SavedFilter {
+  id: string;
+  name: string;
+  search: string;
+  category: TaskCategory | 'all';
+  priority: TaskPriority | 'all';
+  status: TaskStatus | 'all';
+  sort: 'date' | 'priority' | 'title' | 'status';
+}
+
 export interface Settings {
   id: string;
   language: 'ar' | 'en';
@@ -157,10 +171,19 @@ export interface Settings {
   autoRolloverEnabled: boolean;
   showHijriDate: boolean;
   simpleModeEnabled: boolean;
+  /** User-chosen font multiplier, persisted across restarts (0.9 / 1 / 1.15). */
+  fontScaleMultiplier?: number;
   focusMinutes?: number;
   breakMinutes?: number;
   longBreakMinutes?: number;
   autoStartNextPhase?: boolean;
+  /** Weekly targets used by the.stats goal rings. */
+  weeklyTaskGoal?: number;
+  weeklyFocusGoal?: number;
+  /** Named filter presets saved from the Tasks screen. */
+  savedFilters?: SavedFilter[];
+  /** Ordered tab names used by the bottom navigation. */
+  tabOrder?: string[];
 }
 
 export type ReminderOffset = 'at_time' | '5' | '10' | '15' | '30' | '60' | 'custom';
@@ -198,6 +221,10 @@ export interface NotificationSettings {
   untimedTaskReminderTime: string; // HH:mm
   /** Default alarm tone + vibration signature for task-time reminders. */
   alarmSound?: AlarmSoundId;
+  /** Weekly nudge to export a backup. Weekday uses Expo's 1=Sunday convention. */
+  weeklyBackupReminderEnabled?: boolean;
+  weeklyBackupDay?: number;
+  weeklyBackupTime?: string;
 }
 
 export interface PomodoroSession {

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, Pressable, Alert, TextInput } from 'react-native';
-import { ArrowLeft, Database, Download, Upload, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Database, Download, Upload, Trash2, Activity, Wrench } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { BackArrow } from '@/src/components/BackArrow';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +24,12 @@ import {
 } from '@/src/storage';
 import { todayISODate } from '@/src/storage/repository';
 import { cancelAllReminders, rescheduleAllNotifications } from '@/src/notifications';
+import {
+  checkDataHealth,
+  repairTaskLinks,
+  type HealthCollections,
+  type HealthReport,
+} from '@/src/utils/dataHealth';
 
 const BACKUP_KEYS = [
   'tasks',
@@ -70,6 +76,9 @@ export default function DataScreen() {
   const [importText, setImportText] = useState('');
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<HealthReport | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [repairing, setRepairing] = useState(false);
 
   const handleExport = useCallback(async () => {
     try {
@@ -179,6 +188,56 @@ export default function DataScreen() {
     ]);
   }, [t]);
 
+  const runHealthCheck = useCallback(async () => {
+    try {
+      setChecking(true);
+      const collections = await Promise.all(
+        BACKUP_KEYS.map(async (key) => [key, await repositories[key].getAll()] as const),
+      );
+      const data = Object.fromEntries(collections) as unknown as HealthCollections;
+      setReport(checkDataHealth(data));
+    } catch {
+      Alert.alert(t('data.title'), t('data.error'));
+    } finally {
+      setChecking(false);
+    }
+  }, [t]);
+
+  const handleRepair = useCallback(async () => {
+    try {
+      setRepairing(true);
+      const current = await taskRepository.getAll();
+      const { changed } = repairTaskLinks(current);
+      for (const task of changed) {
+        await taskRepository.update(task.id, { dependsOn: task.dependsOn });
+      }
+      const taskIds = new Set(current.map((task) => task.id));
+      const storedReminders = await reminderRepository.getAll();
+      for (const reminder of storedReminders) {
+        if (!taskIds.has(reminder.taskId)) await reminderRepository.delete(reminder.id);
+      }
+      await cancelAllReminders().catch(() => {});
+      await rescheduleAllNotifications().catch(() => {});
+      setStatus(t('data.healthRepaired'));
+      await runHealthCheck();
+    } catch {
+      Alert.alert(t('data.title'), t('data.error'));
+    } finally {
+      setRepairing(false);
+    }
+  }, [t, runHealthCheck]);
+
+  const canRepair = !!report?.issues.some((issue) =>
+    ['brokenDeps', 'cycles', 'orphanReminders'].includes(issue.id),
+  );
+  const scoreColor = !report
+    ? theme.success
+    : report.score >= 80
+      ? theme.success
+      : report.score >= 50
+        ? theme.warning
+        : theme.error;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
@@ -246,6 +305,76 @@ export default function DataScreen() {
           </Button>
         </Card>
 
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Activity size={20} color={theme.accent[500]} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+              {t('data.health')}
+            </Text>
+          </View>
+          <Text style={[styles.desc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+            {t('data.healthDesc')}
+          </Text>
+          <Button
+            variant="outline"
+            onPress={() => void runHealthCheck()}
+            loading={checking}
+            icon={<Activity size={18} color={theme.primary[600]} />}
+          >
+            {t('data.healthRun')}
+          </Button>
+          {report ? (
+            <View style={styles.healthResult}>
+              <View style={styles.healthScoreRow}>
+                <Text style={[styles.healthScoreText, { color: scoreColor, fontFamily: typography.fontFamilySemiBold }]}>
+                  {`${t('data.healthScore')}: ${report.score}/100`}
+                </Text>
+                <Text style={[styles.healthTotal, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                  {`${report.totalRecords} ${t('data.healthRecords')}`}
+                </Text>
+              </View>
+              <View style={[styles.scoreTrack, { backgroundColor: theme.surfaceTertiary }]}>
+                <View style={[styles.scoreFill, { width: `${report.score}%`, backgroundColor: scoreColor }]} />
+              </View>
+              {report.issues.length === 0 ? (
+                <Text style={[styles.desc, { color: theme.success, fontFamily: typography.fontFamily }]}>
+                  {t('data.healthClean')}
+                </Text>
+              ) : (
+                report.issues.map((issue) => {
+                  const dot = issue.severity === 'error'
+                    ? theme.error
+                    : issue.severity === 'warning'
+                      ? theme.warning
+                      : theme.text.tertiary;
+                  return (
+                    <View key={issue.id} style={styles.healthIssueRow}>
+                      <View style={[styles.healthDot, { backgroundColor: dot }]} />
+                      <Text style={[styles.healthIssueLabel, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                        {t(issue.labelKey)}
+                      </Text>
+                      <Text style={[styles.healthIssueCount, { color: dot, fontFamily: typography.fontFamilySemiBold }]}>
+                        {issue.count}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
+              {canRepair ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => void handleRepair()}
+                  loading={repairing}
+                  icon={<Wrench size={16} color="#FFFFFF" />}
+                >
+                  {t('data.healthRepair')}
+                </Button>
+              ) : null}
+            </View>
+          ) : null}
+        </Card>
+
         {status ? (
           <View style={[styles.statusBox, { backgroundColor: theme.success + '18' }]}>
             <Text style={[styles.statusText, { color: theme.success, fontFamily: typography.fontFamilySemiBold }]}>
@@ -300,6 +429,16 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     textAlignVertical: 'top',
   },
+  healthResult: { gap: spacing.sm },
+  healthScoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  healthScoreText: { fontSize: typography.sizes.sm },
+  healthTotal: { fontSize: typography.sizes.xs },
+  scoreTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  scoreFill: { height: '100%', borderRadius: 3 },
+  healthIssueRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  healthDot: { width: 7, height: 7, borderRadius: 4 },
+  healthIssueLabel: { flex: 1, fontSize: typography.sizes.sm },
+  healthIssueCount: { fontSize: typography.sizes.xs },
   statusBox: {
     padding: spacing.md,
     borderRadius: radius.md,

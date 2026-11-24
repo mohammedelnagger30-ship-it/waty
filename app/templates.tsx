@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, ScrollView, Pressable, Alert } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { Copy, Layers, Pencil } from 'lucide-react-native';
+import { Copy, Layers, Pencil, Sunrise, MoonStar } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
@@ -15,10 +15,12 @@ import { taskTemplateRepository, taskRepository } from '@/src/storage';
 import { TaskTemplate, Task, TaskPriority } from '@/src/storage/entities';
 import { scheduleTaskReminders } from '@/src/notifications';
 import { taskFromTemplate, templateFromTask, categoryColors, priorityColors } from '@/src/utils/taskUtils';
+import { routineTemplateFor, ROUTINE_IDS, type RoutineId } from '@/src/utils/routines';
+import { todayISODate } from '@/src/storage/repository';
 
 export default function TemplatesScreen() {
   const { theme, isDark } = useTheme();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
 
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
@@ -84,6 +86,21 @@ export default function TemplatesScreen() {
     setShowForm(true);
   };
 
+  /** Seeds a built-in routine once, then adds its steps as today's task. */
+  const handleRoutine = async (id: RoutineId) => {
+    const existing = templates.find(
+      (template) => template.tags.includes('routine') && template.tags.includes(id),
+    );
+    const template = existing ?? routineTemplateFor(id, language);
+    if (!existing) await taskTemplateRepository.create(template);
+
+    const task = taskFromTemplate(template, { date: todayISODate() });
+    await taskRepository.create(task);
+    try { await scheduleTaskReminders(task); } catch { /* best effort */ }
+    await load();
+    Alert.alert(t('templates.title'), t('routines.added'));
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
@@ -111,6 +128,26 @@ export default function TemplatesScreen() {
         >
           {t('templates.fromTask')}
         </Button>
+
+        <Card style={styles.routineCard}>
+          <Text style={[styles.routineTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+            {t('routines.title')}
+          </Text>
+          <View style={styles.routineButtons}>
+            {ROUTINE_IDS.map((id) => (
+              <Button
+                key={id}
+                variant="ghost"
+                icon={id === 'morning'
+                  ? <Sunrise size={17} color={theme.warning} />
+                  : <MoonStar size={17} color={theme.secondary[500]} />}
+                onPress={() => void handleRoutine(id)}
+              >
+                {t(`routines.${id}` as Parameters<typeof t>[0])}
+              </Button>
+            ))}
+          </View>
+        </Card>
 
         {templates.length === 0 ? (
           <EmptyState
@@ -198,4 +235,7 @@ const styles = StyleSheet.create({
   cardDesc: { fontSize: typography.sizes.sm },
   meta: { fontSize: typography.sizes.xs, marginTop: 2 },
   cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm, borderRadius: radius.md },
+  routineCard: { gap: spacing.sm },
+  routineTitle: { fontSize: typography.sizes.sm },
+  routineButtons: { flexDirection: 'row', gap: spacing.sm },
 });

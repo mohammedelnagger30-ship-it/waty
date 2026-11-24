@@ -84,6 +84,15 @@ export type TranslationKey =
   | 'tasks.swipeDelete'
   | 'tasks.confirmDelete'
   | 'tasks.confirmDeleteMsg'
+  | 'tasks.deleted'
+  | 'tasks.selected'
+  | 'tasks.bulkComplete'
+  | 'tasks.dependsOn'
+  | 'tasks.dependsOnHint'
+  | 'tasks.dependsOnEmpty'
+  | 'tasks.blockedTitle'
+  | 'tasks.blockedMsg'
+  | 'tasks.blockedCount'
   | 'tasks.postponed'
   | 'tasks.completed'
   | 'tasks.tags.placeholder'
@@ -129,6 +138,8 @@ export type TranslationKey =
   | 'stats.title'
   | 'focus.title'
   | 'focus.subtitle'
+  | 'focusScreen.chooseTask'
+  | 'focusScreen.free'
   | 'focus.empty'
   | 'focus.emptyDesc'
   | 'focus.total'
@@ -150,12 +161,43 @@ export type TranslationKey =
   | 'templates.field.tags'
   | 'templates.created'
   | 'templates.deleted'
+  | 'routines.title'
+  | 'routines.morning'
+  | 'routines.evening'
+  | 'routines.added'
   | 'stats.subtitle'
   | 'stats.noData'
   | 'stats.noDataDesc'
   | 'stats.completedTasks'
   | 'stats.activeGoals'
   | 'stats.streak'
+  | 'stats.momentum'
+  | 'stats.currentStreak'
+  | 'stats.bestStreak'
+  | 'stats.level'
+  | 'stats.weeklyGoals'
+  | 'stats.tasksShort'
+  | 'stats.minutesShort'
+  | 'stats.focusMap'
+  | 'stats.focusMapHint'
+  | 'stats.habitMap'
+  | 'stats.habitMapHint'
+  | 'stats.estimateAccuracy'
+  | 'stats.avgEstimate'
+  | 'stats.avgActual'
+  | 'stats.suggestEstimate'
+  | 'stats.bestFocusTime'
+  | 'stats.badges'
+  | 'badge.first_step.title'
+  | 'badge.first_step.desc'
+  | 'badge.deep_focus.title'
+  | 'badge.deep_focus.desc'
+  | 'badge.week_streak.title'
+  | 'badge.week_streak.desc'
+  | 'badge.habit_keeper.title'
+  | 'badge.habit_keeper.desc'
+  | 'badge.reflector.title'
+  | 'badge.reflector.desc'
   | 'stats.weeklyProgress'
   | 'plans.goalsTab'
   | 'plans.plansTab'
@@ -266,6 +308,28 @@ export type TranslationKey =
   | 'tasks.reminder'
   | 'tasks.reminder.none'
   | 'tasks.reminder.default'
+  | 'tasks.viewList'
+  | 'tasks.viewMatrix'
+  | 'tasks.scheduleConflict'
+  | 'tasks.blocks'
+  | 'tasks.blocksHint'
+  | 'tasks.conflictBanner'
+  | 'tasks.fixConflicts'
+  | 'tasks.conflictsFixed'
+  | 'tasks.fixedCount'
+  | 'tasks.impact'
+  | 'tasks.impactHint'
+  | 'tasks.quickWins'
+  | 'tasks.quickWinsHint'
+  | 'matrix.do'
+  | 'matrix.doHint'
+  | 'matrix.schedule'
+  | 'matrix.scheduleHint'
+  | 'matrix.delegate'
+  | 'matrix.delegateHint'
+  | 'matrix.eliminate'
+  | 'matrix.eliminateHint'
+  | 'matrix.empty'
   | 'search.title'
   | 'search.subtitle'
   | 'search.placeholder'
@@ -289,6 +353,25 @@ export type TranslationKey =
   | 'data.clear'
   | 'data.clearDesc'
   | 'data.copied'
+  | 'data.health'
+  | 'data.healthDesc'
+  | 'data.healthRun'
+  | 'data.healthScore'
+  | 'data.healthRecords'
+  | 'data.healthClean'
+  | 'data.healthRepair'
+  | 'data.healthRepaired'
+  | 'data.health.brokenDeps'
+  | 'data.health.cycles'
+  | 'data.health.duplicates'
+  | 'data.health.invalidDates'
+  | 'data.health.deadlineBeforeDate'
+  | 'data.health.orphanReminders'
+  | 'data.health.orphanPomodoros'
+  | 'data.health.habitConfig'
+  | 'data.health.planLinks'
+  | 'data.health.conflicts'
+  | 'data.health.overdue'
   | 'planning.auto'
   | 'planning.autoDesc'
   | 'planning.scheduled'
@@ -310,9 +393,25 @@ export type TranslationKey =
   | 'weekly.noData'
   | 'weekly.highlights'
   | 'weekly.previous'
+  | 'weekly.prompt.well1'
+  | 'weekly.prompt.well2'
+  | 'weekly.prompt.improve1'
+  | 'weekly.prompt.improve2'
+  | 'weekly.prompt.note1'
+  | 'weekly.summary'
+  | 'weekly.summaryHint'
+  | 'weekly.generate'
+  | 'weekly.copySummary'
+  | 'weekly.summaryCopied'
+  | 'weekly.summaryInNote'
   | 'settings.system'
   | 'settings.dataExport'
   | 'settings.dataExportDesc'
+  | 'settings.weeklyGoals'
+  | 'settings.tabOrder'
+  | 'settings.tabOrderDesc'
+  | 'settings.weeklyTasksGoal'
+  | 'settings.weeklyFocusGoal'
   | 'settings.search'
   | 'settings.searchDesc'
   | 'settings.weeklyReview'
@@ -353,6 +452,7 @@ export type TranslationKey =
   | 'common.edit'
   | 'common.delete'
   | 'common.cancel'
+  | 'common.undo'
   | 'common.save'
   | 'common.confirm'
   | 'common.search'
@@ -415,6 +515,13 @@ export type TranslationKey =
   | 'notifications.minutesBefore'
   | 'notifications.customMinutes'
   | 'notifications.save'
+  | 'notifications.weeklyBackup'
+  | 'notifications.weeklyBackupDesc'
+  | 'notifications.weeklyBackupTime'
+  | 'filters.saved'
+  | 'filters.save'
+  | 'filters.namePlaceholder'
+  | 'filters.untitled'
   | 'today.greeting.morning'
   | 'today.greeting.afternoon'
   | 'today.greeting.evening'
@@ -425,11 +532,14 @@ export type TranslationKey =
   | 'today.remainingCount'
   | 'today.timeline'
   | 'today.list'
+  | 'today.reorderHint'
   | 'today.mit'
   | 'today.mitDesc'
   | 'today.noMIT'
   | 'today.markMIT'
   | 'today.unmarkMIT'
+  | 'today.habits'
+  | 'today.habitsHint'
   | 'today.startFocus'
   | 'today.suggestion'
   | 'today.suggestionDesc'
@@ -590,6 +700,15 @@ export const translations: Record<Language, Translations> = {
     'tasks.swipeDelete': 'حذف',
     'tasks.confirmDelete': 'تأكيد الحذف',
     'tasks.confirmDeleteMsg': 'هل أنت متأكد من حذف هذه المهمة؟',
+    'tasks.deleted': 'تم حذف',
+    'tasks.selected': 'محدد',
+    'tasks.bulkComplete': 'إكمال المحدد',
+    'tasks.dependsOn': 'يعتمد على مهام',
+    'tasks.dependsOnHint': 'لازم تتكمل المهام دي قبل ما تتعمل المهمة',
+    'tasks.dependsOnEmpty': 'مفيش مهام تانية لسه',
+    'tasks.blockedTitle': 'المهمة مستنية',
+    'tasks.blockedMsg': 'كمّل المهام دي الأول:',
+    'tasks.blockedCount': 'مهام متوقفة بسبب اعتماديات',
     'tasks.postponed': 'تم التأجيل',
     'tasks.completed': 'تم الإكمال',
     'tasks.tags.placeholder': 'أضف وسم واضغط مسافة',
@@ -635,6 +754,8 @@ export const translations: Record<Language, Translations> = {
     'stats.title': 'الإحصائيات',
     'focus.title': 'سجل التركيز',
     'focus.subtitle': 'كل جلسات التركيز والاستراحة',
+    'focusScreen.chooseTask': 'اربط التركيز بمهمة (اختياري)',
+    'focusScreen.free': 'تركيز حر',
     'focus.empty': 'مفيش جلسات بعد',
     'focus.emptyDesc': 'ابدأ جلسة تركيز من أي مهمة',
     'focus.total': 'إجمالي التركيز',
@@ -656,12 +777,43 @@ export const translations: Record<Language, Translations> = {
     'templates.field.tags': 'الوسوم (مفصولة بفاصلة)',
     'templates.created': 'تم حفظ القالب',
     'templates.deleted': 'تم حذف القالب',
+    'routines.title': 'روتين جاهز',
+    'routines.morning': 'روتين الصباح',
+    'routines.evening': 'روتين المساء',
+    'routines.added': 'اتضافت مهام الروتين ليومك',
     'stats.subtitle': 'تتبع تقدمك وإنجازاتك',
     'stats.noData': 'لا توجد بيانات بعد',
     'stats.noDataDesc': 'ابدأ بإضافة المهام والأهداف لرؤية إحصائياتك',
     'stats.completedTasks': 'المهام المكتملة',
     'stats.activeGoals': 'الأهداف النشطة',
     'stats.streak': 'أيام متتالية',
+    'stats.momentum': 'الزخم والإنجاز',
+    'stats.currentStreak': 'الحالية',
+    'stats.bestStreak': 'الأفضل',
+    'stats.level': 'المستوى',
+    'stats.weeklyGoals': 'أهداف هذا الأسبوع',
+    'stats.tasksShort': 'مهام',
+    'stats.minutesShort': 'دقائق',
+    'stats.focusMap': 'خريطة التركيز',
+    'stats.focusMapHint': 'كل مربع = يوم، واللون الأغمق يعني جلسات أكثر',
+    'stats.habitMap': 'خريطة العادات',
+    'stats.habitMapHint': 'كل مربع = يوم، واللون الأغمق يعني عادات أكثر اكتملت',
+    'stats.estimateAccuracy': 'دقة تقدير الوقت',
+    'stats.avgEstimate': 'متوسط المقدّر',
+    'stats.avgActual': 'متوسط الفعلي',
+    'stats.suggestEstimate': 'الأنسب لك',
+    'stats.bestFocusTime': 'أفضل أوقات التركيز',
+    'stats.badges': 'شارات الإنجاز',
+    'badge.first_step.title': 'أول خطوة',
+    'badge.first_step.desc': 'أكمل أول مهمة',
+    'badge.deep_focus.title': 'تركيز عميق',
+    'badge.deep_focus.desc': '١٢٠ دقيقة تركيز',
+    'badge.week_streak.title': 'أسبوع متتالي',
+    'badge.week_streak.desc': '٧ أيام إنجاز',
+    'badge.habit_keeper.title': 'حارس العادات',
+    'badge.habit_keeper.desc': '١٠ تسجيلات عادات',
+    'badge.reflector.title': 'مراجع دائم',
+    'badge.reflector.desc': '٣ مراجعات يومية',
     'stats.weeklyProgress': 'التقدم الأسبوعي',
     'plans.goalsTab': 'الأهداف',
     'plans.plansTab': 'الخطط',
@@ -772,6 +924,28 @@ export const translations: Record<Language, Translations> = {
     'tasks.reminder': 'تذكير هذه المهمة',
     'tasks.reminder.none': 'بدون تذكير',
     'tasks.reminder.default': 'الافتراضي',
+    'tasks.viewList': 'قائمة',
+    'tasks.viewMatrix': 'مصفوفة',
+    'tasks.scheduleConflict': 'تعارض وقت',
+    'tasks.blocks': 'مهام تتوقف على هذه المهمة',
+    'tasks.blocksHint': 'لن تكتمل هذه المهام قبل إكمال المهمة الحالية',
+    'tasks.conflictBanner': 'فيه تعارض بين مواعيد المهام',
+    'tasks.fixConflicts': 'اضغط لترتيب الوقت تلقائيًا',
+    'tasks.conflictsFixed': 'تم ترتيب المواعيد',
+    'tasks.fixedCount': 'عدد المهام ال اتعدّلت',
+    'tasks.impact': 'الأكثر تأثيرًا',
+    'tasks.impactHint': 'إنجازها يفتح مهام تانية',
+    'tasks.quickWins': 'انتصارات سريعة',
+    'tasks.quickWinsHint': 'مهام صغيرة وعاجلة أو مهمة',
+    'matrix.do': 'افعلها الآن',
+    'matrix.doHint': 'عاجلة ومهمة',
+    'matrix.schedule': 'جدولها',
+    'matrix.scheduleHint': 'مهمة وتحتاج وقت',
+    'matrix.delegate': 'فوّضها',
+    'matrix.delegateHint': 'عاجلة وأقل أهمية',
+    'matrix.eliminate': 'ألغها',
+    'matrix.eliminateHint': 'أقل أهمية وغير عاجلة',
+    'matrix.empty': 'لا توجد مهام لتصنيفها',
     'search.title': 'بحث شامل',
     'search.subtitle': 'ابحث في كل بياناتك',
     'search.placeholder': 'ابحث عن مهمة، هدف، خطة، عادة...',
@@ -795,6 +969,25 @@ export const translations: Record<Language, Translations> = {
     'data.clear': 'مسح كل البيانات',
     'data.clearDesc': 'حذف جميع المهام والأهداف والخطط والعادات نهائياً',
     'data.copied': 'تم النسخ',
+    'data.health': 'فحص صحة البيانات',
+    'data.healthDesc': 'اكتشف الروابط المكسورة والتعارضات قبل ما تصدّر نسخة',
+    'data.healthRun': 'تشغيل الفحص',
+    'data.healthScore': 'درجة سلامة البيانات',
+    'data.healthRecords': 'سجل',
+    'data.healthClean': 'بياناتك سليمة، مفيش مشاكل',
+    'data.healthRepair': 'إصلاح تلقائي آمن',
+    'data.healthRepaired': 'اتصلحت الروابط المتعطلة',
+    'data.health.brokenDeps': 'روابط تبعية مفقودة',
+    'data.health.cycles': 'دورات في التبعيات',
+    'data.health.duplicates': 'معرفات مكررة',
+    'data.health.invalidDates': 'تواريخ غير صالحة',
+    'data.health.deadlineBeforeDate': 'موعد نهائي قبل تاريخ المهمة',
+    'data.health.orphanReminders': 'تذكيرات لمهام محذوفة',
+    'data.health.orphanPomodoros': 'جلسات تركيز لمهام محذوفة',
+    'data.health.habitConfig': 'عادات بإعدادات غير مكتملة',
+    'data.health.planLinks': 'روابط خطط لمهام محذوفة',
+    'data.health.conflicts': 'تعارضات في المواعيد',
+    'data.health.overdue': 'مهام متأخرة',
     'planning.auto': 'ترتيب تلقائي',
     'planning.autoDesc': 'وزّع المهام غير المجدولة على الأيام المتاحة حسب الأولوية',
     'planning.scheduled': 'تم ترتيب المهام',
@@ -816,9 +1009,25 @@ export const translations: Record<Language, Translations> = {
     'weekly.noData': 'لا توجد بيانات كافية لهذا الأسبوع',
     'weekly.highlights': 'أبرز الإنجازات',
     'weekly.previous': 'مراجعات سابقة',
+    'weekly.prompt.well1': 'أهم إنجاز هذا الأسبوع كان...',
+    'weekly.prompt.well2': 'شيء فخورت به...',
+    'weekly.prompt.improve1': 'أكبر عائق تكرر كان...',
+    'weekly.prompt.improve2': 'هغيّر كدة الأسبوع الجاي...',
+    'weekly.prompt.note1': 'أولوية الأسبوع الجاي...',
+    'weekly.summary': 'ملخص جاهز',
+    'weekly.summaryHint': 'نص مختصر من أرقام الأسبوع تقدر تشاركه أو تحفظه',
+    'weekly.generate': 'توليد الملخص',
+    'weekly.copySummary': 'نسخ / مشاركة الملخص',
+    'weekly.summaryCopied': 'اتنسخ الملخص',
+    'weekly.summaryInNote': 'اتضاف الملخص للملاحظات',
     'settings.system': 'حسب النظام',
     'settings.dataExport': 'البيانات والنسخ الاحتياطي',
     'settings.dataExportDesc': 'تصدير واستيراد بيانات التطبيق',
+    'settings.weeklyGoals': 'الأهداف الأسبوعية',
+    'settings.tabOrder': 'ترتيب التبويبات',
+    'settings.tabOrderDesc': 'حرّك التبويبات بالأسهم',
+    'settings.weeklyTasksGoal': 'هدف المهام أسبوعياً',
+    'settings.weeklyFocusGoal': 'هدف التركيز (دقيقة)',
     'settings.search': 'البحث الشامل',
     'settings.searchDesc': 'ابحث في كل المهام والأهداف والخطط',
     'settings.weeklyReview': 'المراجعة الأسبوعية',
@@ -859,6 +1068,7 @@ export const translations: Record<Language, Translations> = {
     'common.edit': 'تعديل',
     'common.delete': 'حذف',
     'common.cancel': 'إلغاء',
+    'common.undo': 'تراجع',
     'common.save': 'حفظ',
     'common.confirm': 'تأكيد',
     'common.search': 'بحث',
@@ -921,6 +1131,13 @@ export const translations: Record<Language, Translations> = {
     'notifications.minutesBefore': 'دقائق قبل الموعد',
     'notifications.customMinutes': 'عدد الدقائق',
     'notifications.save': 'حفظ',
+    'notifications.weeklyBackup': 'تذكير النسخة الاحتياطية',
+    'notifications.weeklyBackupDesc': 'كل أحد، صدّر نسخة من بياناتك',
+    'notifications.weeklyBackupTime': 'وقت تذكير النسخة الاحتياطية',
+    'filters.saved': 'فلاتر محفوظة',
+    'filters.save': 'احفظ الفلتر',
+    'filters.namePlaceholder': 'اسم الفلتر',
+    'filters.untitled': 'فلتر بدون اسم',
     'today.greeting.morning': 'صباح الخير',
     'today.greeting.afternoon': 'مساء الخير',
     'today.greeting.evening': 'مساء الخير',
@@ -931,11 +1148,14 @@ export const translations: Record<Language, Translations> = {
     'today.remainingCount': 'متبقية',
     'today.timeline': 'الجدول',
     'today.list': 'قائمة',
+    'today.reorderHint': 'اسحب المقبض لتغيير ترتيب مهام اليوم',
     'today.mit': 'أهم 3 مهام',
     'today.mitDesc': 'ركّز على الأهم اليوم',
     'today.noMIT': 'لم تحدد أي مهمة كأهم مهمة',
     'today.markMIT': 'تحديد كأهم مهمة',
     'today.unmarkMIT': 'إلغاء التحديد',
+    'today.habits': 'عادات اليوم',
+    'today.habitsHint': 'اعمل علامة بسرعة بعد التنفيذ',
     'today.startFocus': 'ابدأ التركيز',
     'today.suggestion': 'أنسب مهمة الآن',
     'today.suggestionDesc': 'حسب الأولوية والموعد',
@@ -1093,6 +1313,15 @@ export const translations: Record<Language, Translations> = {
     'tasks.swipeDelete': 'Delete',
     'tasks.confirmDelete': 'Confirm Delete',
     'tasks.confirmDeleteMsg': 'Are you sure you want to delete this task?',
+    'tasks.deleted': 'Deleted',
+    'tasks.selected': 'Selected',
+    'tasks.bulkComplete': 'Complete selected',
+    'tasks.dependsOn': 'Depends on tasks',
+    'tasks.dependsOnHint': 'Finish these tasks before completing this one',
+    'tasks.dependsOnEmpty': 'No other tasks available yet',
+    'tasks.blockedTitle': 'Task is waiting',
+    'tasks.blockedMsg': 'Finish these first:',
+    'tasks.blockedCount': 'Tasks blocked by dependencies',
     'tasks.postponed': 'Postponed',
     'tasks.completed': 'Completed',
     'tasks.tags.placeholder': 'Add tag and press space',
@@ -1138,6 +1367,8 @@ export const translations: Record<Language, Translations> = {
     'stats.title': 'Stats',
     'focus.title': 'Focus history',
     'focus.subtitle': 'All your focus and break sessions',
+    'focusScreen.chooseTask': 'Link focus to a task (optional)',
+    'focusScreen.free': 'Free focus',
     'focus.empty': 'No sessions yet',
     'focus.emptyDesc': 'Start a focus session from any task',
     'focus.total': 'Total focus',
@@ -1159,12 +1390,43 @@ export const translations: Record<Language, Translations> = {
     'templates.field.tags': 'Tags (comma separated)',
     'templates.created': 'Template saved',
     'templates.deleted': 'Template deleted',
+    'routines.title': 'Ready-made routines',
+    'routines.morning': 'Morning routine',
+    'routines.evening': 'Evening routine',
+    'routines.added': 'Routine tasks added to your day',
     'stats.subtitle': 'Track your progress and achievements',
     'stats.noData': 'No data yet',
     'stats.noDataDesc': 'Start by adding tasks and goals to see your stats',
     'stats.completedTasks': 'Completed Tasks',
     'stats.activeGoals': 'Active Goals',
     'stats.streak': 'Day Streak',
+    'stats.momentum': 'Momentum & progress',
+    'stats.currentStreak': 'Current',
+    'stats.bestStreak': 'Best',
+    'stats.level': 'Level',
+    'stats.weeklyGoals': 'Weekly goals',
+    'stats.tasksShort': 'tasks',
+    'stats.minutesShort': 'minutes',
+    'stats.focusMap': 'Focus map',
+    'stats.focusMapHint': 'Each square is a day; darker means more sessions',
+    'stats.habitMap': 'Habit map',
+    'stats.habitMapHint': 'Each square is a day; darker means more habits done',
+    'stats.estimateAccuracy': 'Time estimate accuracy',
+    'stats.avgEstimate': 'Avg estimated',
+    'stats.avgActual': 'Avg actual',
+    'stats.suggestEstimate': 'Suggested for you',
+    'stats.bestFocusTime': 'Best focus hours',
+    'stats.badges': 'Achievement badges',
+    'badge.first_step.title': 'First step',
+    'badge.first_step.desc': 'Complete your first task',
+    'badge.deep_focus.title': 'Deep focus',
+    'badge.deep_focus.desc': '120 focus minutes',
+    'badge.week_streak.title': 'Seven-day streak',
+    'badge.week_streak.desc': '7 days in a row',
+    'badge.habit_keeper.title': 'Habit keeper',
+    'badge.habit_keeper.desc': '10 habit check-ins',
+    'badge.reflector.title': 'Regular reflector',
+    'badge.reflector.desc': '3 daily reviews',
     'stats.weeklyProgress': 'Weekly Progress',
     'plans.goalsTab': 'Goals',
     'plans.plansTab': 'Plans',
@@ -1275,6 +1537,28 @@ export const translations: Record<Language, Translations> = {
     'tasks.reminder': 'Reminders for this task',
     'tasks.reminder.none': 'No reminder',
     'tasks.reminder.default': 'Default',
+    'tasks.viewList': 'List',
+    'tasks.viewMatrix': 'Matrix',
+    'tasks.scheduleConflict': 'Time clash',
+    'tasks.blocks': 'Tasks waiting on this one',
+    'tasks.blocksHint': 'These cannot be completed before this task',
+    'tasks.conflictBanner': 'Some task times overlap',
+    'tasks.fixConflicts': 'Tap to shuffle them into free slots',
+    'tasks.conflictsFixed': 'Schedule tidied up',
+    'tasks.fixedCount': 'Tasks adjusted',
+    'tasks.impact': 'Most impactful',
+    'tasks.impactHint': 'Finishing these unblocks other tasks',
+    'tasks.quickWins': 'Quick wins',
+    'tasks.quickWinsHint': 'Small tasks that are urgent or important',
+    'matrix.do': 'Do now',
+    'matrix.doHint': 'Urgent and important',
+    'matrix.schedule': 'Schedule',
+    'matrix.scheduleHint': 'Important, not urgent',
+    'matrix.delegate': 'Delegate',
+    'matrix.delegateHint': 'Urgent, less important',
+    'matrix.eliminate': 'Drop',
+    'matrix.eliminateHint': 'Not urgent or important',
+    'matrix.empty': 'Nothing to prioritize',
     'search.title': 'Global Search',
     'search.subtitle': 'Search across all your data',
     'search.placeholder': 'Search tasks, goals, plans, habits...',
@@ -1298,6 +1582,25 @@ export const translations: Record<Language, Translations> = {
     'data.clear': 'Clear all data',
     'data.clearDesc': 'Permanently delete all tasks, goals, plans and habits',
     'data.copied': 'Copied',
+    'data.health': 'Data health check',
+    'data.healthDesc': 'Find broken links and clashes before you export a backup',
+    'data.healthRun': 'Run check',
+    'data.healthScore': 'Data health score',
+    'data.healthRecords': 'records',
+    'data.healthClean': 'Your data looks clean — no issues found',
+    'data.healthRepair': 'Safe auto-repair',
+    'data.healthRepaired': 'Broken links repaired',
+    'data.health.brokenDeps': 'Missing dependency links',
+    'data.health.cycles': 'Dependency cycles',
+    'data.health.duplicates': 'Duplicate ids',
+    'data.health.invalidDates': 'Invalid dates',
+    'data.health.deadlineBeforeDate': 'Deadline before task date',
+    'data.health.orphanReminders': 'Reminders for deleted tasks',
+    'data.health.orphanPomodoros': 'Focus sessions for deleted tasks',
+    'data.health.habitConfig': 'Habits with incomplete setup',
+    'data.health.planLinks': 'Plan links to deleted tasks',
+    'data.health.conflicts': 'Schedule conflicts',
+    'data.health.overdue': 'Overdue tasks',
     'planning.auto': 'Auto-schedule',
     'planning.autoDesc': 'Distribute unscheduled tasks across available days by priority',
     'planning.scheduled': 'Tasks scheduled',
@@ -1319,9 +1622,25 @@ export const translations: Record<Language, Translations> = {
     'weekly.noData': 'Not enough data for this week',
     'weekly.highlights': 'Highlights',
     'weekly.previous': 'Previous reviews',
+    'weekly.prompt.well1': 'My biggest win this week was...',
+    'weekly.prompt.well2': 'Something I am proud of...',
+    'weekly.prompt.improve1': 'The obstacle that kept repeating was...',
+    'weekly.prompt.improve2': 'Next week I will change...',
+    'weekly.prompt.note1': 'Top priority next week...',
+    'weekly.summary': 'Ready-made summary',
+    'weekly.summaryHint': 'A short recap from this week’s numbers, ready to share or save',
+    'weekly.generate': 'Generate summary',
+    'weekly.copySummary': 'Copy / share summary',
+    'weekly.summaryCopied': 'Summary copied',
+    'weekly.summaryInNote': 'Summary added to notes',
     'settings.system': 'System',
     'settings.dataExport': 'Data & Backup',
     'settings.dataExportDesc': 'Export and import app data',
+    'settings.weeklyGoals': 'Weekly goals',
+    'settings.tabOrder': 'Tab order',
+    'settings.tabOrderDesc': 'Use the arrows to move tabs',
+    'settings.weeklyTasksGoal': 'Tasks per week',
+    'settings.weeklyFocusGoal': 'Focus minutes per week',
     'settings.search': 'Global Search',
     'settings.searchDesc': 'Search all tasks, goals and plans',
     'settings.weeklyReview': 'Weekly Review',
@@ -1362,6 +1681,7 @@ export const translations: Record<Language, Translations> = {
     'common.edit': 'Edit',
     'common.delete': 'Delete',
     'common.cancel': 'Cancel',
+    'common.undo': 'Undo',
     'common.save': 'Save',
     'common.confirm': 'Confirm',
     'common.search': 'Search',
@@ -1424,6 +1744,13 @@ export const translations: Record<Language, Translations> = {
     'notifications.minutesBefore': 'minutes before',
     'notifications.customMinutes': 'Custom minutes',
     'notifications.save': 'Save',
+    'notifications.weeklyBackup': 'Backup reminder',
+    'notifications.weeklyBackupDesc': 'Every Sunday, export a copy of your data',
+    'notifications.weeklyBackupTime': 'Backup reminder time',
+    'filters.saved': 'Saved filters',
+    'filters.save': 'Save filter',
+    'filters.namePlaceholder': 'Filter name',
+    'filters.untitled': 'Untitled filter',
     'today.greeting.morning': 'Good morning',
     'today.greeting.afternoon': 'Good afternoon',
     'today.greeting.evening': 'Good evening',
@@ -1434,11 +1761,14 @@ export const translations: Record<Language, Translations> = {
     'today.remainingCount': 'Left',
     'today.timeline': 'Timeline',
     'today.list': 'List',
+    'today.reorderHint': 'Drag the handle to reorder today’s tasks',
     'today.mit': 'Top 3 Tasks',
     'today.mitDesc': 'Focus on what matters most',
     'today.noMIT': 'No top tasks marked yet',
     'today.markMIT': 'Mark as top task',
     'today.unmarkMIT': 'Unmark',
+    'today.habits': "Today's habits",
+    'today.habitsHint': 'Quick check-in after you do them',
     'today.startFocus': 'Start Focus',
     'today.suggestion': 'Best task right now',
     'today.suggestionDesc': 'Based on priority and due date',

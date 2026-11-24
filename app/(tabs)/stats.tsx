@@ -24,16 +24,20 @@ import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, radius, typography } from '@/src/theme';
 import { ScreenHeader, EmptyState, Chip, StatCard, ProgressRing, TrendChart } from '@/src/components';
+import { HeatmapGrid } from '@/src/components/HeatmapGrid';
 import {
   goalRepository,
   habitRepository,
   pomodoroRepository,
   reviewRepository,
   taskRepository,
+  settingsRepository,
 } from '@/src/storage';
-import { Goal, Habit, PomodoroSession, DailyReview, Task } from '@/src/storage/entities';
+import { Goal, Habit, PomodoroSession, DailyReview, Task, Settings } from '@/src/storage/entities';
 import { computeDashboardStats, Period } from '@/src/utils/statsUtils';
 import { formatDateDisplay } from '@/src/utils/taskUtils';
+import { buildHeatmap, computeStreak, dateKey, levelFromXp, suggestEstimate } from '@/src/utils/insights';
+import { buildBadges } from '@/src/utils/achievements';
 
 const PERIODS: Period[] = ['7', '30', 'all'];
 
@@ -47,17 +51,20 @@ export default function StatsScreen() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [reviews, setReviews] = useState<DailyReview[]>([]);
   const [pomodoros, setPomodoroSessions] = useState<PomodoroSession[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [period, setPeriod] = useState<Period>('7');
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [storedTasks, storedGoals, storedHabits, storedReviews, storedPomodoros] = await Promise.all([
+    const [storedTasks, storedGoals, storedHabits, storedReviews, storedPomodoros, storedSettings] = await Promise.all([
       taskRepository.getAll(),
       goalRepository.getAll(),
       habitRepository.getAll(),
       reviewRepository.getAll(),
       pomodoroRepository.getAll(),
+      settingsRepository.getOrCreate(),
     ]);
+    setSettings(storedSettings);
     setTasks(storedTasks);
     setGoals(storedGoals);
     setHabits(storedHabits);
@@ -89,6 +96,67 @@ export default function StatsScreen() {
     [stats.daily],
   );
   const hasData = tasks.length > 0 || goals.length > 0 || habits.length > 0 || reviews.length > 0;
+
+  // New insights are derived locally: no extra entity and no extra storage.
+  const insightData = useMemo(() => {
+    const focusSessions = pomodoros.filter((session) => session.type === 'focus');
+    const completed = tasks.filter((task) => task.status === 'done');
+    const streak = computeStreak(completed.map((task) => task.completedAt ?? task.date));
+    const focusMinutes = focusSessions.reduce((sum, session) => sum + session.durationMinutes, 0);
+    const xp = completed.length * 10 + focusMinutes;
+    const level = levelFromXp(xp);
+
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 6);
+    const weekAgoKey = dateKey(weekAgo);
+    const weeklyTasks = completed.filter((task) => dateKey(task.completedAt ?? task.date) >= weekAgoKey).length;
+    const weeklyFocus = focusSessions
+      .filter((session) => dateKey(session.startedAt) >= weekAgoKey)
+      .reduce((sum, session) => sum + session.durationMinutes, 0);
+
+    const estimates = tasks.filter((task) => task.estimatedMinutes && task.actualMinutes > 0);
+    const averageEstimate = estimates.length
+      ? Math.round(estimates.reduce((sum, task) => sum + (task.estimatedMinutes ?? 0), 0) / estimates.length)
+      : 0;
+    const averageActual = estimates.length
+      ? Math.round(estimates.reduce((sum, task) => sum + task.actualMinutes, 0) / estimates.length)
+      : 0;
+    const betterEstimate = suggestEstimate(averageEstimate, estimates.map((task) => task.actualMinutes));
+
+    const hourBuckets = new Map<number, number>();
+    focusSessions.forEach((session) => {
+      const hour = new Date(session.startedAt).getHours();
+      hourBuckets.set(hour, (hourBuckets.get(hour) || 0) + 1);
+    });
+    const bestHours = Array.from(hourBuckets.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    return {
+      heatCells: buildHeatmap(focusSessions.map((session) => session.startedAt), 12),
+      habitCells: buildHeatmap(habits.flatMap((habit) => habit.completedDates), 12),
+      streak,
+      level,
+      weeklyTasks,
+      weeklyFocus,
+      taskGoal: settings?.weeklyTaskGoal ?? 20,
+      focusGoal: settings?.weeklyFocusGoal ?? 300,
+      averageEstimate,
+      averageActual,
+      betterEstimate,
+      bestHours,
+      badges: buildBadges({
+        completedTasks: completed.length,
+        focusMinutes,
+        streak: streak.current,
+        habitCompletions: habits.reduce(
+          (sum, habit) => sum + habit.completedDates.length,
+          0,
+        ),
+        reviews: reviews.length,
+      }),
+    };
+  }, [tasks, pomodoros, settings, habits, reviews]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -159,6 +227,139 @@ export default function StatsScreen() {
             <Text style={[styles.overviewText, { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold }]}>
               {t('stats.streak')}: {stats.streak}
             </Text>
+          </View>
+        </View>
+
+        {/* Streak + level */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.sectionHeader}>
+            <Flame size={18} color={theme.warning} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+              {t('stats.momentum')}
+            </Text>
+          </View>
+          <View style={styles.momentumRow}>
+            <View style={styles.momentumItem}>
+              <Text style={[styles.momentumValue, { color: theme.warning, fontFamily: typography.fontFamilyBold }]}>
+                {insightData.streak.current}
+              </Text>
+              <Text style={[styles.momentumLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('stats.currentStreak')}
+              </Text>
+            </View>
+            <View style={[styles.momentumDivider, { backgroundColor: theme.border }]} />
+            <View style={styles.momentumItem}>
+              <Text style={[styles.momentumValue, { color: theme.accent[500], fontFamily: typography.fontFamilyBold }]}>
+                {insightData.level.level}
+              </Text>
+              <Text style={[styles.momentumLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('stats.level')}
+              </Text>
+            </View>
+            <View style={[styles.momentumDivider, { backgroundColor: theme.border }]} />
+            <View style={styles.momentumItem}>
+              <Text style={[styles.momentumValue, { color: theme.primary[500], fontFamily: typography.fontFamilyBold }]}>
+                {insightData.streak.longest}
+              </Text>
+              <Text style={[styles.momentumLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('stats.bestStreak')}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.levelTrack, { backgroundColor: theme.surfaceTertiary }]}>
+            <View
+              style={[
+                styles.levelFill,
+                {
+                  width: `${Math.round(insightData.level.progress * 100)}%`,
+                  backgroundColor: theme.accent[500],
+                },
+              ]}
+            />
+          </View>
+          <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+            {insightData.level.current}/{insightData.level.needed} XP
+          </Text>
+        </View>
+
+        {/* Badges */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.sectionHeader}>
+            <Award size={18} color={theme.warning} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+              {t('stats.badges')}
+            </Text>
+          </View>
+          <View style={styles.badgeRow}>
+            {insightData.badges.map((badge) => (
+              <View
+                key={badge.id}
+                style={[
+                  styles.badgeItem,
+                  {
+                    backgroundColor: badge.earned ? theme.warning + '1A' : theme.surfaceSecondary,
+                    opacity: badge.earned ? 1 : 0.58,
+                  },
+                ]}
+              >
+                <Award size={16} color={badge.earned ? theme.warning : theme.text.tertiary} />
+                <Text style={[styles.badgeTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+                  {t(`badge.${badge.id}.title` as Parameters<typeof t>[0])}
+                </Text>
+                <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                  {t(`badge.${badge.id}.desc` as Parameters<typeof t>[0])}
+                </Text>
+                <View style={[styles.badgeTrack, { backgroundColor: theme.surfaceSecondary }]}>
+                  <View
+                    style={[
+                      styles.badgeFill,
+                      {
+                        width: `${Math.min(100, (badge.value / badge.target) * 100)}%`,
+                        backgroundColor: badge.earned ? theme.warning : theme.primary[500],
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                  {badge.value}/{badge.target}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Weekly goals */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.sectionHeader}>
+            <Target size={18} color={theme.success} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+              {t('stats.weeklyGoals')}
+            </Text>
+          </View>
+          <View style={styles.goalRings}>
+            <View style={styles.goalRingItem}>
+              <ProgressRing
+                progress={Math.min(100, (insightData.weeklyTasks / insightData.taskGoal) * 100)}
+                size={92}
+                strokeWidth={8}
+                label={t('stats.tasksShort')}
+              />
+              <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {insightData.weeklyTasks}/{insightData.taskGoal}
+              </Text>
+            </View>
+            <View style={styles.goalRingItem}>
+              <ProgressRing
+                progress={Math.min(100, (insightData.weeklyFocus / insightData.focusGoal) * 100)}
+                size={92}
+                strokeWidth={8}
+                color={theme.secondary[500]}
+                label={t('stats.minutesShort')}
+              />
+              <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {insightData.weeklyFocus}/{insightData.focusGoal}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -287,6 +488,84 @@ export default function StatsScreen() {
                 </Text>
               </View>
             ))}
+          </View>
+        ) : null}
+
+        {/* Focus consistency map */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.sectionHeader}>
+            <Flame size={18} color={theme.primary[500]} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+              {t('stats.focusMap')}
+            </Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <HeatmapGrid cells={insightData.heatCells} baseColor={theme.primary[500]} />
+          </ScrollView>
+          <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+            {t('stats.focusMapHint')}
+          </Text>
+        </View>
+
+        {/* Habit consistency map */}
+        {habits.length > 0 ? (
+          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.sectionHeader}>
+              <CheckSquare size={18} color={theme.success} />
+              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+                {t('stats.habitMap')}
+              </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <HeatmapGrid cells={insightData.habitCells} baseColor={theme.success} />
+            </ScrollView>
+            <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+              {t('stats.habitMapHint')}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Estimate accuracy */}
+        {insightData.averageEstimate > 0 ? (
+          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.sectionHeader}>
+              <Clock size={18} color={theme.secondary[500]} />
+              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+                {t('stats.estimateAccuracy')}
+              </Text>
+            </View>
+            <Text style={[styles.overviewText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+              {t('stats.avgEstimate')}: {insightData.averageEstimate} · {t('stats.avgActual')}: {insightData.averageActual}
+            </Text>
+            {insightData.betterEstimate ? (
+              <Text style={[styles.trendHint, { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold }]}>
+                {t('stats.suggestEstimate')}: {insightData.betterEstimate} {t('common.min')}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Best focus hours */}
+        {insightData.bestHours.length > 0 ? (
+          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.sectionHeader}>
+              <Timer size={18} color={theme.accent[500]} />
+              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+                {t('stats.bestFocusTime')}
+              </Text>
+            </View>
+            <View style={styles.hourRow}>
+              {insightData.bestHours.map(([hour, count]) => (
+                <View key={hour} style={[styles.hourChip, { backgroundColor: theme.primary[500] + '18' }]}>
+                  <Text style={[styles.hourText, { color: theme.primary[500], fontFamily: typography.fontFamilyBold }]}>
+                    {String(hour).padStart(2, '0')}:00
+                  </Text>
+                  <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                    {count}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
         ) : null}
 
@@ -540,6 +819,81 @@ const styles = StyleSheet.create({
   },
   recentDate: {
     fontSize: 10,
+  },
+  momentumRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  momentumItem: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  momentumValue: {
+    fontSize: typography.sizes.xl,
+  },
+  momentumLabel: {
+    fontSize: typography.sizes.xs,
+  },
+  momentumDivider: {
+    width: 1,
+    height: 32,
+  },
+  levelTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  levelFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  badgeItem: {
+    width: '47%',
+    minHeight: 112,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    gap: 3,
+  },
+  badgeTrack: {
+    height: 5,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  badgeFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  badgeTitle: {
+    fontSize: typography.sizes.sm,
+  },
+  goalRings: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  goalRingItem: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  hourRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  hourChip: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  hourText: {
+    fontSize: typography.sizes.sm,
   },
   hint: {
     fontSize: typography.sizes.sm,

@@ -24,6 +24,7 @@ import {
   Plus,
   Circle,
   Copy,
+  Link2,
 } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BackArrow } from '@/src/components/BackArrow';
@@ -48,6 +49,8 @@ import {
   allStatuses,
   createSubtask,
   completeRepeatingTask,
+  getUnmetDependencies,
+  getTasksBlockedBy,
 } from '@/src/utils/taskUtils';
 
 export default function TaskDetailScreen() {
@@ -57,6 +60,7 @@ export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [task, setTask] = useState<Task | null>(null);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
@@ -66,8 +70,9 @@ export default function TaskDetailScreen() {
 
   const loadTask = useCallback(async () => {
     if (!id) return;
-    const found = await taskRepository.getById(id);
+    const [found, all] = await Promise.all([taskRepository.getById(id), taskRepository.getAll()]);
     setTask(found);
+    setAllTasks(all);
     setLoading(false);
   }, [id]);
 
@@ -96,6 +101,11 @@ export default function TaskDetailScreen() {
   const handleStatusChange = async (status: TaskStatus) => {
     if (!task) return;
     if (status === 'done' && task.status !== 'done') {
+      const blockers = getUnmetDependencies(task, allTasks);
+      if (blockers.length) {
+        Alert.alert(t('tasks.blockedTitle'), `${t('tasks.blockedMsg')} ${blockers.map((item) => item.title).join('، ')}`);
+        return;
+      }
       const { nextOccurrence, completed } = completeRepeatingTask(task);
       if (nextOccurrence) {
         await taskRepository.create(nextOccurrence);
@@ -362,6 +372,55 @@ export default function TaskDetailScreen() {
             </View>
           </View>
         )}
+
+        {/* Dependencies */}
+        {task.dependsOn && task.dependsOn.length > 0 ? (
+          <View style={styles.section}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Link2 size={15} color={theme.text.tertiary} />
+              <Text style={[styles.sectionLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
+                {t('tasks.dependsOn')}
+              </Text>
+            </View>
+            <View style={styles.tagsRow}>
+              {task.dependsOn.map((dependencyId) => {
+                const dependency = allTasks.find((item) => item.id === dependencyId);
+                if (!dependency) return null;
+                const done = dependency.status === 'done';
+                return (
+                  <Chip key={dependencyId} selected={done} onPress={() => router.push(`/tasks/${dependency.id}`)}>
+                    {`${done ? '✓ ' : ''}${dependency.title}`}
+                  </Chip>
+                );
+              })}
+            </View>
+            <Text style={[styles.taskDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+              {t('tasks.dependsOnHint')}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Tasks waiting on this one */}
+        {getTasksBlockedBy(task.id, allTasks).length > 0 ? (
+          <View style={styles.section}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Link2 size={15} color={theme.warning} />
+              <Text style={[styles.sectionLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
+                {t('tasks.blocks')}
+              </Text>
+            </View>
+            <View style={styles.tagsRow}>
+              {getTasksBlockedBy(task.id, allTasks).map((blocked) => (
+                <Chip key={blocked.id} onPress={() => router.push(`/tasks/${blocked.id}`)}>
+                  {blocked.title}
+                </Chip>
+              ))}
+            </View>
+            <Text style={[styles.taskDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+              {t('tasks.blocksHint')}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Subtasks */}
         <View style={styles.section}>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable, TextInput } from 'react-native';
 import {
   Sun,
   Moon,
@@ -8,6 +8,8 @@ import {
   Bell,
   ChevronRight,
   ChevronLeft,
+  ChevronUp,
+  ChevronDown,
   Repeat,
   Calendar,
   Search,
@@ -20,6 +22,7 @@ import {
   DownloadCloud,
   Layers,
   Timer,
+  Target,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -35,6 +38,15 @@ import { Card, Chip, Toggle } from '@/src/components';
 import { settingsRepository } from '@/src/storage';
 import { Settings } from '@/src/storage/entities';
 import { useAppUpdate, getCurrentVersion } from '@/src/updates';
+
+const TAB_NAMES = ['index', 'tasks', 'plans', 'stats', 'settings'] as const;
+const TAB_LABEL_KEYS: Record<(typeof TAB_NAMES)[number], string> = {
+  index: 'tab.today',
+  tasks: 'tab.tasks',
+  plans: 'tab.plans',
+  stats: 'tab.stats',
+  settings: 'tab.settings',
+};
 
 interface NavRowProps {
   icon: ReactNode;
@@ -170,6 +182,27 @@ export default function SettingsScreen() {
     await settingsRepository.patch(updates);
   };
 
+  const getTabNames = (): string[] => {
+    const stored = (settings?.tabOrder ?? []).filter((name) =>
+      (TAB_NAMES as readonly string[]).includes(name),
+    );
+    TAB_NAMES.forEach((name) => {
+      if (!stored.includes(name)) stored.push(name);
+    });
+    return stored;
+  };
+
+  const moveTab = async (name: string, delta: number) => {
+    const names = getTabNames();
+    const from = names.indexOf(name);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= names.length) return;
+    const next = [...names];
+    next.splice(from, 1);
+    next.splice(to, 0, name);
+    await updateSettings({ tabOrder: next });
+  };
+
   const handlePaletteSelect = (id: PaletteId) => {
     haptics.selection();
     setPalette(id);
@@ -259,6 +292,69 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Target size={20} color={theme.success} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+              {t('settings.weeklyGoals')}
+            </Text>
+          </View>
+          <View style={styles.goalInputRow}>
+            <Text style={[styles.goalInputLabel, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+              {t('settings.weeklyTasksGoal')}
+            </Text>
+            <TextInput
+              value={String(settings?.weeklyTaskGoal ?? 20)}
+              onChangeText={(value) => void updateSettings({ weeklyTaskGoal: Math.max(1, Number(value) || 1) })}
+              keyboardType="number-pad"
+              style={[styles.goalInput, { color: theme.text.primary, borderColor: theme.border, fontFamily: typography.fontFamily }]}
+            />
+          </View>
+          <View style={styles.goalInputRow}>
+            <Text style={[styles.goalInputLabel, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+              {t('settings.weeklyFocusGoal')}
+            </Text>
+            <TextInput
+              value={String(settings?.weeklyFocusGoal ?? 300)}
+              onChangeText={(value) => void updateSettings({ weeklyFocusGoal: Math.max(1, Number(value) || 1) })}
+              keyboardType="number-pad"
+              style={[styles.goalInput, { color: theme.text.primary, borderColor: theme.border, fontFamily: typography.fontFamily }]}
+            />
+          </View>
+        </Card>
+
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Repeat size={20} color={theme.secondary[500]} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+                {t('settings.tabOrder')}
+              </Text>
+              <Text style={[styles.navDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('settings.tabOrderDesc')}
+              </Text>
+            </View>
+          </View>
+          {getTabNames().map((name, index) => (
+            <View key={name} style={styles.tabOrderRow}>
+              <Text style={[styles.navTitle, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                {t(TAB_LABEL_KEYS[name as keyof typeof TAB_LABEL_KEYS] as Parameters<typeof t>[0])}
+              </Text>
+              <Pressable disabled={index === 0} onPress={() => void moveTab(name, -1)} hitSlop={8} style={{ padding: 4, opacity: index === 0 ? 0.3 : 1 }}>
+                <ChevronUp size={18} color={theme.text.secondary} />
+              </Pressable>
+              <Pressable
+                disabled={index === getTabNames().length - 1}
+                onPress={() => void moveTab(name, 1)}
+                hitSlop={8}
+                style={{ padding: 4, opacity: index === getTabNames().length - 1 ? 0.3 : 1 }}
+              >
+                <ChevronDown size={18} color={theme.text.secondary} />
+              </Pressable>
+            </View>
+          ))}
+        </Card>
+
+        <Card style={styles.section}>
           <NavRow
             icon={<Bell size={20} color={theme.primary[500]} />}
             title={t('notifications.title')}
@@ -277,6 +373,13 @@ export default function SettingsScreen() {
             title={t('templates.title')}
             description={t('templates.subtitle')}
             onPress={() => router.push('/templates')}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <NavRow
+            icon={<Timer size={20} color={theme.accent[500]} />}
+            title={t('pomodoro.title')}
+            description={t('today.startFocus')}
+            onPress={() => router.push('/focus')}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
@@ -499,6 +602,31 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: typography.sizes.md,
+  },
+  tabOrderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  goalInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  goalInputLabel: {
+    flex: 1,
+    fontSize: typography.sizes.sm,
+  },
+  goalInput: {
+    width: 76,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    textAlign: 'center',
+    fontSize: typography.sizes.sm,
   },
   chipRow: {
     flexDirection: 'row',

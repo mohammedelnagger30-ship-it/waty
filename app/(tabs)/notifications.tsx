@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Send,
   BellRing,
+  Database,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { BackArrow } from '@/src/components/BackArrow';
@@ -404,6 +405,41 @@ export default function NotificationSettingsScreen() {
               theme={theme}
             />
           )}
+        </Card>
+
+        {/* Weekly backup reminder */}
+        <Card style={styles.section}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleRowIcon}>
+              <Database size={20} color={theme.success} />
+            </View>
+            <View style={styles.toggleRowText}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+                {t('notifications.weeklyBackup')}
+              </Text>
+              <Text style={[styles.sectionDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('notifications.weeklyBackupDesc')}
+              </Text>
+            </View>
+            <Toggle
+              value={settings.weeklyBackupReminderEnabled ?? false}
+              onValueChange={async (v) => {
+                await updateSettings({ weeklyBackupReminderEnabled: v });
+                await rescheduleAllNotifications();
+              }}
+            />
+          </View>
+          {settings.weeklyBackupReminderEnabled ? (
+            <TimeInputRow
+              label={t('notifications.weeklyBackupTime')}
+              value={settings.weeklyBackupTime ?? '20:00'}
+              onChange={async (v) => {
+                await updateSettings({ weeklyBackupTime: v });
+                await rescheduleAllNotifications();
+              }}
+              theme={theme}
+            />
+          ) : null}
         </Card>
 
         {/* Quiet hours */}

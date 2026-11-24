@@ -19,6 +19,7 @@ import { Chip } from './Chip';
 import { Input } from './Input';
 import { QuickTimeChips } from './QuickTimeChips';
 import { Task, TaskPriority, TaskCategory, RepeatType, Subtask, ReminderOffset, AlarmSoundId } from '@/src/storage/entities';
+import { taskRepository } from '@/src/storage';
 import { ALARM_PRESETS, previewAlarm } from '@/src/notifications';
 import {
   createDefaultTask,
@@ -29,7 +30,10 @@ import {
   weekDays,
   priorityColors,
   categoryColors,
+  dependsOnReaches,
 } from '@/src/utils/taskUtils';
+import { parseSmartInput } from '@/src/utils/smartInput';
+import { suggestEstimate } from '@/src/utils/insights';
 
 interface TaskFormModalProps {
   visible: boolean;
@@ -63,6 +67,7 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
   const [tagInput, setTagInput] = useState('');
   const [subtaskInput, setSubtaskInput] = useState('');
   const [showCustomCat, setShowCustomCat] = useState(false);
+  const [dependencyOptions, setDependencyOptions] = useState<Task[]>([]);
 
   useEffect(() => {
     if (visible) {
@@ -78,7 +83,30 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
     }
   }, [visible, editingTask, initialTask]);
 
+  useEffect(() => {
+    if (!visible) return;
+    void taskRepository.getAll().then((all) => {
+      setDependencyOptions(
+        all.filter((item) => item.id !== task.id && !dependsOnReaches(item.id, task.id, all)),
+      );
+    });
+  }, [visible, task.id]);
+
   const update = (updates: Partial<Task>) => setTask((prev) => ({ ...prev, ...updates }));
+
+  const handleTitleChange = (value: string) => {
+    if (editingTask) {
+      update({ title: value });
+      return;
+    }
+    const parsed = parseSmartInput(value);
+    setTask((prev) => ({
+      ...prev,
+      title: value,
+      date: parsed.date ?? prev.date,
+      time: parsed.time ?? prev.time,
+    }));
+  };
 
   const addTag = () => {
     const trimmed = tagInput.trim();
@@ -126,9 +154,23 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
     });
   };
 
+  const toggleDependency = (id: string) => {
+    const current = task.dependsOn ?? [];
+    update({
+      dependsOn: current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    });
+  };
+
   const handleSave = async () => {
     if (!task.title.trim()) return;
-    await onSave({ ...task, title: task.title.trim(), updatedAt: new Date().toISOString() });
+    const parsed = editingTask ? null : parseSmartInput(task.title);
+    await onSave({
+      ...task,
+      title: (parsed?.title || task.title).trim(),
+      date: parsed?.date ?? task.date,
+      time: parsed?.time ?? task.time,
+      updatedAt: new Date().toISOString(),
+    });
     onClose();
   };
 
@@ -141,6 +183,9 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
 
   const weekLabels = language === 'ar' ? weekDayLabelsAr : weekDayLabelsEn;
   const isEditing = !!editingTask;
+  const suggestedMinutes = isEditing && task.actualMinutes > 0
+    ? suggestEstimate(task.estimatedMinutes ?? 0, [task.actualMinutes])
+    : null;
 
   return (
     <ModalSheet visible={visible} onClose={onClose} title={isEditing ? t('tasks.edit') : t('tasks.new')}>
@@ -157,7 +202,7 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
           {/* Title */}
           <Input
             value={task.title}
-            onChangeText={(v) => update({ title: v })}
+            onChangeText={handleTitleChange}
             placeholder={t('tasks.field.title')}
             label={t('tasks.field.title')}
           />
@@ -329,6 +374,22 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
                   style={[styles.textInput, { color: theme.text.primary, fontFamily: typography.fontFamily }]}
                 />
               </View>
+              {suggestedMinutes ? (
+                <Pressable
+                  onPress={() => update({ estimatedMinutes: suggestedMinutes })}
+                  style={({ pressed }) => [
+                    styles.estimateSuggestion,
+                    {
+                      backgroundColor: theme.primary[500] + '18',
+                      opacity: pressed ? 0.75 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.estimateSuggestionText, { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold }]}>
+                    {`${t('stats.suggestEstimate')}: ${suggestedMinutes} ${t('common.min')}`}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
             <View style={styles.flex1}>
               <Text style={[styles.fieldLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
@@ -433,6 +494,33 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
                   </Pressable>
                 ))}
               </View>
+            )}
+          </View>
+
+          {/* Task dependencies */}
+          <View style={styles.fieldGap}>
+            <Text style={[styles.fieldLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
+              {t('tasks.dependsOn')}
+            </Text>
+            <Text style={[styles.fieldHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+              {t('tasks.dependsOnHint')}
+            </Text>
+            {dependencyOptions.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dependencyRow}>
+                {dependencyOptions.map((candidate) => (
+                  <Chip
+                    key={candidate.id}
+                    selected={(task.dependsOn ?? []).includes(candidate.id)}
+                    onPress={() => toggleDependency(candidate.id)}
+                  >
+                    {candidate.title}
+                  </Chip>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={[styles.fieldHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('tasks.dependsOnEmpty')}
+              </Text>
             )}
           </View>
 
@@ -631,10 +719,25 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     paddingVertical: spacing.sm,
   },
+  estimateSuggestion: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.pill,
+  },
+  estimateSuggestionText: {
+    fontSize: typography.sizes.xs,
+  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs + 2,
+  },
+  dependencyRow: {
+    flexDirection: 'row',
+    gap: spacing.xs + 2,
+    paddingVertical: 2,
   },
   tagInputRow: {
     flexDirection: 'row',

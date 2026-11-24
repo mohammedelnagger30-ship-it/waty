@@ -52,8 +52,10 @@ export function FontScaleProvider({ children }: { children: ReactNode }) {
     settingsRepository.getOrCreate()
       .then((settings) => {
         const value = settings.simpleModeEnabled ?? false;
+        const multiplier = settings.fontScaleMultiplier ?? 1.0;
         setSimpleModeEnabledState(value);
-        applyGlobalFontScaling(value, value ? undefined : 1.0);
+        setFontScaleMultiplierState(multiplier);
+        applyGlobalFontScaling(value, value ? undefined : multiplier);
       })
       .catch(() => {});
   }, []);
@@ -69,6 +71,7 @@ export function FontScaleProvider({ children }: { children: ReactNode }) {
     if (!simpleModeEnabled) {
       globalThis.__MAX_FONT_SIZE_MULTIPLIER__ = value;
     }
+    settingsRepository.patch({ fontScaleMultiplier: value }).catch(() => {});
   };
 
   const isSystemScaleDetected = systemFontScale > 1.15;

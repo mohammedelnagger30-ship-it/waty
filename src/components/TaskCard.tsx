@@ -37,9 +37,28 @@ interface TaskCardProps {
   onComplete: (task: Task) => void | Promise<void>;
   onPostpone: (task: Task) => void | Promise<void>;
   onDelete: (task: Task) => void | Promise<void>;
+  /** Optional multi-select mode used by the bulk actions bar. */
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (task: Task) => void;
+  /** Makes tag chips tappable (used to filter the list by tag). */
+  onTagPress?: (tag: string) => void;
+  /** Number of other timed tasks overlapping this one. */
+  conflictCount?: number;
 }
 
-function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskCardProps) {
+function TaskCardImpl({
+  task,
+  onPress,
+  onComplete,
+  onPostpone,
+  onDelete,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+  onTagPress,
+  conflictCount = 0,
+}: TaskCardProps) {
   const { theme, isDark } = useTheme();
   const { t, isRTL } = useI18n();
   const reduced = useReducedMotion();
@@ -73,6 +92,7 @@ function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskC
   );
 
   const pan = Gesture.Pan()
+    .enabled(!selectionMode)
     .activeOffsetX([-15, 15])
     // Let vertical scrolling win immediately; only near-horizontal drags reveal actions.
     .failOffsetY([-12, 12])
@@ -219,7 +239,8 @@ function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskC
         <AnimatedPressable
           onPress={() => {
             haptics.selection();
-            onPress(task);
+            if (selectionMode) onToggleSelect?.(task);
+            else onPress(task);
           }}
           onPressIn={() => {
             if (!reduced) cardScale.value = withTiming(0.985, PRESS_TIMING);
@@ -230,13 +251,15 @@ function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskC
           style={[
             styles.card,
             {
-              backgroundColor: isActive ? theme.primary[50] : theme.surface,
-              borderColor: isActive
+              backgroundColor: selected ? theme.primary[50] : isActive ? theme.primary[50] : theme.surface,
+              borderColor: selected
+                ? theme.primary[500]
+                : isActive
                 ? theme.primary[300]
                 : isOverdue
                 ? theme.error + '66'
                 : theme.border,
-              borderWidth: isActive || isOverdue ? 1.5 : 1,
+              borderWidth: selected ? 2 : isActive || isOverdue ? 1.5 : 1,
               shadowColor: isActive ? theme.primary[500] : 'transparent',
               shadowOpacity: isActive ? (isDark ? 0.35 : 0.18) : 0,
               shadowRadius: isActive ? 12 : 0,
@@ -253,6 +276,11 @@ function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskC
               <Pressable
                 hitSlop={8}
                 onPress={() => {
+                  if (selectionMode) {
+                    haptics.selection();
+                    onToggleSelect?.(task);
+                    return;
+                  }
                   if (isDone) return;
                   haptics.success();
                   onComplete(task);
@@ -260,8 +288,8 @@ function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskC
                 style={[
                   styles.checkbox,
                   {
-                    borderColor: isDone ? theme.success : color,
-                    backgroundColor: isDone ? theme.success : 'transparent',
+                    borderColor: selected || isDone ? theme.success : color,
+                    backgroundColor: selected || isDone ? theme.success : 'transparent',
                     shadowColor: isDone ? theme.success : 'transparent',
                     shadowOpacity: isDone ? 0.45 : 0,
                     shadowRadius: isDone ? 8 : 0,
@@ -269,7 +297,7 @@ function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskC
                   },
                 ]}
               >
-                {isDone && <Check size={16} color="#FFFFFF" strokeWidth={3} />}
+                {(isDone || selected) && <Check size={16} color="#FFFFFF" strokeWidth={3} />}
               </Pressable>
 
               <View style={styles.titleArea}>
@@ -309,6 +337,14 @@ function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskC
                 {task.isMIT && (
                   <View style={[styles.mitBadge, { backgroundColor: theme.accent[500] + '20' }]}>
                     <Star size={12} color={theme.accent[isDark ? 300 : 600]} fill={theme.accent[isDark ? 300 : 600]} />
+                  </View>
+                )}
+                {conflictCount > 0 && (
+                  <View style={[styles.conflictBadge, { backgroundColor: theme.warningSoft }]}>
+                    <AlertTriangle size={12} color={theme.warning} />
+                    <Text style={[styles.conflictText, { color: theme.warning }]}>
+                      {t('tasks.scheduleConflict')}
+                    </Text>
                   </View>
                 )}
                 {isOverdue && (
@@ -356,11 +392,17 @@ function TaskCardImpl({ task, onPress, onComplete, onPostpone, onDelete }: TaskC
             {task.tags.length > 0 && (
               <View style={styles.tagsRow}>
                 {task.tags.slice(0, 3).map((tag, i) => (
-                  <View key={i} style={[styles.tagChip, { backgroundColor: theme.surfaceSecondary }]}>
+                  <Pressable
+                    key={i}
+                    disabled={!onTagPress}
+                    hitSlop={4}
+                    onPress={() => onTagPress?.(tag)}
+                    style={[styles.tagChip, { backgroundColor: theme.surfaceSecondary }]}
+                  >
                     <Text style={[styles.tagText, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
                       #{tag}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             )}
@@ -491,6 +533,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  conflictBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.xs + 2,
+    borderRadius: radius.pill,
+  },
+  conflictText: {
+    fontSize: 10,
+    fontFamily: typography.fontFamilySemiBold,
   },
   overdueBadge: {
     flexDirection: 'row',

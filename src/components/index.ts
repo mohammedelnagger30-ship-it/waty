@@ -8,6 +8,7 @@ export { ScreenHeader } from './ScreenHeader';
 export { ModalSheet } from './ModalSheet';
 export { FAB } from './FAB';
 export { TaskCard } from './TaskCard';
+export { PriorityMatrix } from './PriorityMatrix';
 export { FilterBar } from './FilterBar';
 export { QuickAddModal } from './QuickAddModal';
 export { TaskFormModal } from './TaskFormModal';
