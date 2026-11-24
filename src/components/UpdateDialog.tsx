@@ -19,6 +19,7 @@ import {
   getCurrentVersion,
   installUpdate,
   openDownload,
+  verifyDownload,
   type DownloadProgress,
   type UpdateInfo,
 } from '@/src/updates/updateService';
@@ -55,8 +56,11 @@ export function UpdateDialog({ info, onDismiss }: UpdateDialogProps) {
     setProgress({ written: 0, total: 0, percent: 0 });
     try {
       const uri = await downloadUpdate(info, setProgress);
+      if (!(await verifyDownload(uri, info.sha256))) {
+        throw new Error('Update checksum mismatch');
+      }
       setPhase('installing');
-      const opened = installUpdate(uri);
+      const opened = await installUpdate(uri);
       if (!opened) {
         await openDownload(info);
       }

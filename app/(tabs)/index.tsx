@@ -36,7 +36,7 @@ import { Task, TaskStatus, TaskPriority, Settings } from '@/src/storage/entities
 import { scheduleTaskReminders, rescheduleTaskReminders, cancelTaskReminders } from '@/src/notifications';
 import { todayISODate } from '@/src/storage/repository';
 import { getHijriDate, getFullDateString, getGreeting } from '@/src/utils/dateUtils';
-import { priorityColors, categoryColors, createDefaultTask } from '@/src/utils/taskUtils';
+import { priorityColors, categoryColors, createDefaultTask, completeRepeatingTask } from '@/src/utils/taskUtils';
 import { runAutoRollover, shouldPromptRollover } from '@/src/utils/rolloverUtils';
 import { ProgressRing } from '@/src/components/ProgressRing';
 import { Card, EmptyState, Button, TaskFormModal } from '@/src/components';
@@ -112,11 +112,14 @@ export default function TodayScreen() {
   };
 
   const handleComplete = async (task: Task) => {
-    const next: Partial<Task> = {
-      status: 'done' as TaskStatus,
-      completedAt: new Date().toISOString(),
-    };
-    await taskRepository.update(task.id, next);
+    if (task.status !== 'done') {
+      const { nextOccurrence, completed } = completeRepeatingTask(task);
+      if (nextOccurrence) {
+        await taskRepository.create(nextOccurrence);
+        await notify(() => scheduleTaskReminders(nextOccurrence));
+      }
+      await taskRepository.update(task.id, completed);
+    }
     await notify(() => cancelTaskReminders(task.id));
     await loadTasks();
   };

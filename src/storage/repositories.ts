@@ -142,4 +142,9 @@ export const settingsRepository = {
       return this.create({ ...defaultSettings(), ...updates, id: SETTINGS_ID });
     });
   },
+
+  /** Drops the shared in-memory snapshot after a backup import. */
+  invalidate(): void {
+    settingsInit = null;
+  },
 };

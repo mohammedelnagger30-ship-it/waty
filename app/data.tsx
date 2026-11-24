@@ -32,7 +32,7 @@ const BACKUP_KEYS = [
   'habits',
   'reviews',
   'pomodoros',
-  'weeklyReviews',
+  'weekly_reviews',
   'reminders',
   'settings',
   'notif_settings',
@@ -45,6 +45,9 @@ type BackupKey = (typeof BACKUP_KEYS)[number];
 // on import so an old backup never fails or wipes current preferences.
 const OPTIONAL_KEYS: BackupKey[] = ['settings', 'notif_settings', 'task_templates'];
 
+// Clearing data keeps only the preferences that keep the app usable.
+const PRESERVE_KEYS: BackupKey[] = ['settings', 'notif_settings'];
+
 const repositories: Record<BackupKey, { getAll: () => Promise<unknown[]>; replaceAll: (items: never[]) => Promise<void> }> = {
   tasks: taskRepository as never,
   goals: goalRepository as never,
@@ -52,7 +55,7 @@ const repositories: Record<BackupKey, { getAll: () => Promise<unknown[]>; replac
   habits: habitRepository as never,
   reviews: reviewRepository as never,
   pomodoros: pomodoroRepository as never,
-  weeklyReviews: weeklyReviewRepository as never,
+  weekly_reviews: weeklyReviewRepository as never,
   reminders: reminderRepository as never,
   settings: settingsRepository as never,
   notif_settings: notificationSettingsRepository as never,
@@ -113,8 +116,12 @@ export default function DataScreen() {
     try {
       setBusy(true);
       const parsed = JSON.parse(importText);
-      const source = parsed?.data ?? parsed;
+      let source = parsed?.data ?? parsed;
       if (!source || typeof source !== 'object') throw new Error('invalid');
+      // v1-v3 backups used the wrong key for weekly reviews; accept both.
+      if (source.weekly_reviews === undefined && Array.isArray(source.weeklyReviews)) {
+        source = { ...source, weekly_reviews: source.weeklyReviews };
+      }
 
       const collections: Array<readonly [BackupKey, unknown[]]> = [];
       for (const key of BACKUP_KEYS) {
@@ -128,6 +135,8 @@ export default function DataScreen() {
       for (const [key, value] of collections) {
         await repositories[key].replaceAll(value as never[]);
       }
+      // Imported settings must not stay cached from before the restore.
+      settingsRepository.invalidate();
       // Rebuild reminders from the imported tasks/settings instead of leaving
       // the app with no notifications until the next edit.
       await cancelAllReminders().catch(() => {});
@@ -153,7 +162,7 @@ export default function DataScreen() {
             for (const key of BACKUP_KEYS) {
               // Keep language/theme/notification preferences so the app stays
               // usable and the cached settings object matches storage.
-              if (OPTIONAL_KEYS.includes(key)) continue;
+              if (PRESERVE_KEYS.includes(key)) continue;
               await repositories[key].replaceAll([]);
             }
             await cancelAllReminders().catch(() => {});

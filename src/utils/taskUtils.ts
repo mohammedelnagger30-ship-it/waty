@@ -208,7 +208,11 @@ export function getNextRepeatDate(task: Task): string | null {
   if (task.repeat === 'weekly') return addDays(base, 7);
   if (task.repeat === 'monthly') {
     const d = new Date(base + 'T00:00:00');
-    d.setMonth(d.getMonth() + 1);
+    const nextMonth = d.getMonth() + 1;
+    const lastDay = new Date(d.getFullYear(), nextMonth + 1, 0).getDate();
+    // Clamp before changing the month: setMonth(31 Jan) otherwise rolls into March.
+    d.setDate(Math.min(d.getDate(), lastDay));
+    d.setMonth(nextMonth);
     return toISODate(d);
   }
   if (task.repeat === 'custom' && task.repeatDays && task.repeatDays.length > 0) {

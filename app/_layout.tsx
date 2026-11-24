@@ -12,13 +12,18 @@ import {
 } from '@expo-google-fonts/cairo';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { ErrorBoundary } from '@/src/components/ErrorBoundary';
-import { ThemeProvider } from '@/src/context/ThemeProvider';
+import { ThemeProvider, useTheme } from '@/src/context/ThemeProvider';
 import { FontScaleProvider } from '@/src/context/FontScaleProvider';
 import { I18nProvider } from '@/src/i18n/I18nProvider';
 import { UpdateProvider } from '@/src/updates';
 import { handleNotificationAction, initNotifications } from '@/src/notifications';
 
 const TASK_ACTIONS = ['complete', 'postpone_hour', 'postpone_day'];
+
+function AppStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
+}
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -69,7 +74,7 @@ export default function RootLayout() {
             >
               <Stack.Screen name="+not-found" />
             </Stack>
-            <StatusBar style="auto" />
+            <AppStatusBar />
           </UpdateProvider>
         </I18nProvider>
         </FontScaleProvider>

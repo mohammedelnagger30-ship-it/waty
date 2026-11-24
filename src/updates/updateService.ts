@@ -6,8 +6,12 @@ import * as FileSystem from 'expo-file-system/legacy';
 const REPO_OWNER = 'mohammedelnagger30-ship-it';
 const REPO_NAME = 'waty';
 const BRANCH = 'main';
-const MANIFEST_URL =
+const RAW_MANIFEST_URL =
   `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/update.json`;
+// The GitHub API is authoritative: the raw CDN can briefly serve a stale file
+// after a quick publish/revert, which would otherwise show a fake update.
+const API_MANIFEST_URL =
+  `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/update.json?ref=${BRANCH}`;
 
 export interface UpdateInfo {
   version: string;
@@ -16,6 +20,7 @@ export interface UpdateInfo {
   notesEn?: string;
   apkUrl?: string;
   releaseUrl?: string;
+  sha256?: string;
 }
 
 export interface DownloadProgress {
@@ -58,22 +63,49 @@ function isNewerBuild(manifest: UpdateManifest): boolean {
   return isNewerVersion(manifest.version, getCurrentVersion());
 }
 
+async function fetchManifest(
+  url: string,
+  headers: Record<string, string>,
+  signal: AbortSignal,
+): Promise<UpdateManifest> {
+  const response = await fetch(url, {
+    headers,
+    signal,
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    throw new Error(`Update manifest request failed: ${response.status}`);
+  }
+  return (await response.json()) as UpdateManifest;
+}
+
+async function loadManifest(signal: AbortSignal): Promise<UpdateManifest> {
+  try {
+    return await fetchManifest(
+      API_MANIFEST_URL,
+      {
+        Accept: 'application/vnd.github.raw+json',
+        'User-Agent': 'waqty-app',
+      },
+      signal,
+    );
+  } catch {
+    // Fallback for rate-limited API requests or older GitHub proxies.
+    return fetchManifest(
+      `${RAW_MANIFEST_URL}?t=${Date.now()}`,
+      { Accept: 'application/json' },
+      signal,
+    );
+  }
+}
+
 /** Fetches the published update manifest and returns it only when it is newer. */
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const response = await fetch(`${MANIFEST_URL}?t=${Date.now()}`, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    if (!response.ok) {
-      throw new Error(`Update manifest request failed: ${response.status}`);
-    }
-
-    const manifest = (await response.json()) as UpdateManifest;
+    const manifest = await loadManifest(controller.signal);
     if (!manifest.version || !isNewerBuild(manifest)) {
       return null;
     }
@@ -85,6 +117,7 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
       notesEn: manifest.notesEn,
       apkUrl: manifest.apkUrl,
       releaseUrl: manifest.releaseUrl,
+      sha256: manifest.sha256,
     };
   } finally {
     clearTimeout(timeout);
@@ -138,13 +171,39 @@ export async function downloadUpdate(
   return result.uri;
 }
 
+type ApkInstallerModule = {
+  install?: (uri: string) => Promise<boolean>;
+  digest?: (uri: string) => Promise<string>;
+};
+
+function getInstaller(): ApkInstallerModule | undefined {
+  return NativeModules.ApkInstaller as ApkInstallerModule | undefined;
+}
+
+/** Verifies the downloaded file against the checksum published with the release. */
+export async function verifyDownload(fileUri: string, expectedSha256?: string): Promise<boolean> {
+  if (!expectedSha256) return true;
+  const installer = getInstaller();
+  // Older installed builds have no digest method; keep their browser fallback.
+  if (!installer?.digest) return true;
+  try {
+    const actual = (await installer.digest(fileUri)).trim().toLowerCase();
+    return actual.length > 0 && actual === expectedSha256.replace(/\s/g, '').toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
 /** Hands the downloaded APK to Android's package installer. */
-export function installUpdate(fileUri: string): boolean {
+export async function installUpdate(fileUri: string): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
-  const installer = NativeModules.ApkInstaller as { install?: (uri: string) => void } | undefined;
+  const installer = getInstaller();
   if (!installer?.install) return false;
-  installer.install(fileUri);
-  return true;
+  try {
+    return Boolean(await installer.install(fileUri));
+  } catch {
+    return false;
+  }
 }
 
 /** Browser fallback, only used if the in-app install path is unavailable. */

@@ -56,7 +56,7 @@ const reminderLabelKeys: Record<ReminderOffset, string> = {
 
 export default function NotificationSettingsScreen() {
   const { theme } = useTheme();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
 
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
@@ -112,8 +112,10 @@ export default function NotificationSettingsScreen() {
   const handleTestNotification = async () => {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'إشعار تجريبي 🔔',
-        body: 'هذا إشعار تجريبي للتأكد من عمل الإشعارات',
+        title: language === 'ar' ? 'إشعار تجريبي 🔔' : 'Test notification 🔔',
+        body: language === 'ar'
+          ? 'هذا إشعار تجريبي للتأكد من عمل الإشعارات'
+          : 'This is a test notification from Orbit',
         sound: settings?.soundEnabled ? 'default' : undefined,
         ...(Platform.OS === 'android' ? { channelId: NOTIF_CHANNELS.default } : {}),
       },

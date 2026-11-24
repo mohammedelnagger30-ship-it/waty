@@ -248,7 +248,10 @@ interface ScheduleInput {
   body?: string;
 }
 
-async function scheduleOneReminder(input: ScheduleInput): Promise<string | null> {
+async function scheduleOneReminder(
+  input: ScheduleInput,
+  settingsOverride?: NotificationSettings,
+): Promise<string | null> {
   const offsetMin = reminderOffsetMinutes(input.offset, input.customMinutes);
   const triggerDate = buildTriggerDate(
     { id: input.taskId, title: input.taskTitle, date: input.date, time: input.taskTime } as Task,
@@ -256,7 +259,7 @@ async function scheduleOneReminder(input: ScheduleInput): Promise<string | null>
   );
   if (!triggerDate) return null;
 
-  const notifSettings = await notificationSettingsRepository.getOrCreate();
+  const notifSettings = settingsOverride ?? (await notificationSettingsRepository.getOrCreate());
   if (!notifSettings.enabled) return null;
 
   const timeStr = `${triggerDate.getHours().toString().padStart(2, '0')}:${triggerDate.getMinutes().toString().padStart(2, '0')}`;
@@ -331,7 +334,7 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
       customMinutes: reminder.customMinutes,
       alarmSound: task.alarmSound ?? notifSettings.alarmSound,
       body: undefined,
-    });
+    }, notifSettings);
 
     if (scheduledId) {
       reminder.scheduledId = scheduledId;
@@ -358,17 +361,18 @@ export async function rescheduleTaskReminders(task: Task): Promise<void> {
 
 export async function cancelAllReminders(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
-  const all = await reminderRepository.getAll();
-  for (const r of all) {
-    await reminderRepository.delete(r.id);
-  }
+  // One write instead of a full read-modify-write cycle per reminder.
+  await reminderRepository.replaceAll([]);
 }
 
 // --- Daily summary notification ---
 
 export async function scheduleMorningSummary(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
-  if (!settings.enabled || !settings.morningSummaryEnabled) return;
+  if (!settings.enabled || !settings.morningSummaryEnabled) {
+    await Notifications.cancelScheduledNotificationAsync('morning_summary');
+    return;
+  }
 
   const [h, m] = settings.morningSummaryTime.split(':').map(Number);
 
@@ -400,7 +404,10 @@ export async function scheduleMorningSummary(): Promise<void> {
 
 export async function scheduleEveningReview(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
-  if (!settings.enabled || !settings.eveningReviewEnabled) return;
+  if (!settings.enabled || !settings.eveningReviewEnabled) {
+    await Notifications.cancelScheduledNotificationAsync('evening_review');
+    return;
+  }
 
   const [h, m] = settings.eveningReviewTime.split(':').map(Number);
 
@@ -427,7 +434,10 @@ export async function scheduleEveningReview(): Promise<void> {
 
 export async function scheduleOverdueCheck(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
-  if (!settings.enabled || !settings.overdueReminderEnabled) return;
+  if (!settings.enabled || !settings.overdueReminderEnabled) {
+    await Notifications.cancelScheduledNotificationAsync('overdue_check');
+    return;
+  }
 
   const [h, m] = settings.overdueReminderTime.split(':').map(Number);
 
@@ -454,7 +464,10 @@ export async function scheduleOverdueCheck(): Promise<void> {
 
 export async function scheduleHabitReminders(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
-  if (!settings.enabled || !settings.dailyHabitReminderEnabled) return;
+  if (!settings.enabled || !settings.dailyHabitReminderEnabled) {
+    await Notifications.cancelScheduledNotificationAsync('habit_reminder');
+    return;
+  }
 
   await Notifications.cancelScheduledNotificationAsync('habit_reminder');
 
@@ -561,14 +574,56 @@ export async function rescheduleAllNotifications(): Promise<void> {
     return;
   }
 
-  // Re-schedule all task reminders
+  // Re-schedule all task reminders. Build the new rows in memory and persist
+  // them once instead of doing a storage read/write per reminder on startup.
+  const existing = await reminderRepository.getAll();
+  await Promise.all(
+    existing.map((reminder) =>
+      reminder.scheduledId
+        ? Notifications.cancelScheduledNotificationAsync(reminder.scheduledId).catch(() => {})
+        : Promise.resolve(),
+    ),
+  );
+  if (existing.length > 0) await reminderRepository.replaceAll([]);
+
   const allTasks = await taskRepository.getAll();
   const activeTasks = allTasks.filter(
     (t) => t.status !== 'done' && t.status !== 'cancelled' && t.time,
   );
+  const freshReminders: TaskReminder[] = [];
+
   for (const task of activeTasks) {
-    await scheduleTaskReminders(task);
+    // undefined = follow global defaults; an explicit [] means "no reminder".
+    const offsets = task.reminderOffsets ?? settings.defaultReminders;
+    for (const offset of offsets) {
+      const reminder: TaskReminder = {
+        id: generateId(),
+        taskId: task.id,
+        offset,
+        customMinutes: offset === 'custom' ? task.reminderCustomMinutes : undefined,
+        scheduledId: undefined,
+      };
+      const scheduledId = await scheduleOneReminder(
+        {
+          taskId: task.id,
+          taskTitle: task.title,
+          taskTime: task.time,
+          date: task.date,
+          offset,
+          customMinutes: reminder.customMinutes,
+          alarmSound: task.alarmSound ?? settings.alarmSound,
+          body: undefined,
+        },
+        settings,
+      );
+      if (scheduledId) {
+        reminder.scheduledId = scheduledId;
+        freshReminders.push(reminder);
+      }
+    }
   }
+
+  if (freshReminders.length > 0) await reminderRepository.replaceAll(freshReminders);
 
   await scheduleMorningSummary();
   await scheduleEveningReview();

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, Text, Pressable } from 'react-native';
+import { AppState, View, StyleSheet, Text, Pressable } from 'react-native';
 import { Play, Pause, RotateCcw, SkipForward, Settings as SettingsIcon, Timer } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -50,6 +50,9 @@ export function PomodoroTimer({
   const phaseRef = useRef<Phase>('focus');
   const focusCountRef = useRef(0);
   const secondsRef = useRef(25 * 60);
+  const deadlineRef = useRef<number | null>(null);
+  const phaseStartedAtRef = useRef(Date.now());
+  const pausedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -71,12 +74,12 @@ export function PomodoroTimer({
     return () => { mounted = false; };
   }, []);
 
-  const stopInterval = () => {
+  const stopInterval = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  };
+  }, []);
 
   const recordSession = useCallback(
     async (type: Phase, durationMin: number) => {
@@ -102,12 +105,18 @@ export function PomodoroTimer({
   const handleComplete = useCallback(() => {
     stopInterval();
     const completedPhase = phaseRef.current;
-    const completedMinutes =
+    const configuredMinutes =
       completedPhase === 'focus'
         ? workMinutes
         : completedPhase === 'break'
           ? breakMinutes
           : longBreakMinutes;
+    // Count real elapsed time so backgrounded/late completions stay accurate.
+    const elapsedMs = Math.max(0, Date.now() - phaseStartedAtRef.current);
+    const completedMinutes = Math.max(
+      1,
+      Math.min(configuredMinutes, Math.round(elapsedMs / 60000)),
+    );
 
     void recordSession(completedPhase, completedMinutes);
 
@@ -129,26 +138,47 @@ export function PomodoroTimer({
     setPhase(nextPhase);
     setSecondsLeft(nextSeconds);
     setState(autoStart ? 'running' : 'idle');
-  }, [workMinutes, breakMinutes, longBreakMinutes, autoStart, recordSession]);
+    phaseStartedAtRef.current = Date.now();
+    pausedAtRef.current = null;
+    deadlineRef.current = autoStart ? Date.now() + nextSeconds * 1000 : null;
+  }, [workMinutes, breakMinutes, longBreakMinutes, autoStart, recordSession, stopInterval]);
 
   useEffect(() => {
     if (state !== 'running') {
       stopInterval();
       return;
     }
-    intervalRef.current = setInterval(() => {
-      const next = secondsRef.current - 1;
-      if (next <= 0) {
-        secondsRef.current = 0;
-        setSecondsLeft(0);
-        handleComplete();
-      } else {
-        secondsRef.current = next;
-        setSecondsLeft(next);
-      }
-    }, 1000);
+
+    const tick = () => {
+      if (deadlineRef.current === null) return;
+      const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+      secondsRef.current = remaining;
+      setSecondsLeft(remaining);
+      if (remaining <= 0) handleComplete();
+    };
+
+    tick();
+    intervalRef.current = setInterval(tick, 1000);
     return () => stopInterval();
-  }, [state, handleComplete]);
+  }, [state, handleComplete, stopInterval]);
+
+  // Stop the JS ticker while backgrounded; the deadline is wall-clock based,
+  // so the timer catches up on resume without keeping the renderer awake.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        stopInterval();
+        return;
+      }
+      if (state === 'running' && deadlineRef.current !== null) {
+        const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+        secondsRef.current = remaining;
+        setSecondsLeft(remaining);
+        if (remaining <= 0) handleComplete();
+      }
+    });
+    return () => subscription.remove();
+  }, [state, handleComplete, stopInterval]);
 
   const handleStart = () => {
     if (state === 'idle' || state === 'paused') {
@@ -156,16 +186,35 @@ export function PomodoroTimer({
         secondsRef.current = workMinutes * 60;
         setSecondsLeft(secondsRef.current);
       }
+      if (state === 'idle') {
+        phaseStartedAtRef.current = Date.now();
+      } else if (pausedAtRef.current !== null) {
+        // Paused time must not be counted as focus time.
+        phaseStartedAtRef.current += Date.now() - pausedAtRef.current;
+      }
+      pausedAtRef.current = null;
+      deadlineRef.current = Date.now() + secondsRef.current * 1000;
       setState('running');
     }
   };
 
   const handlePause = () => {
+    if (state === 'running' && deadlineRef.current !== null) {
+      const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+      secondsRef.current = remaining;
+      setSecondsLeft(remaining);
+      pausedAtRef.current = Date.now();
+      deadlineRef.current = null;
+    }
+    stopInterval();
     setState('paused');
   };
 
   const handleReset = () => {
     stopInterval();
+    deadlineRef.current = null;
+    pausedAtRef.current = null;
+    phaseStartedAtRef.current = Date.now();
     setState('idle');
     setPhase('focus');
     secondsRef.current = workMinutes * 60;

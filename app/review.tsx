@@ -32,9 +32,9 @@ import { spacing, typography, radius } from '@/src/theme';
 import { taskRepository, reviewRepository } from '@/src/storage';
 import { Task, TaskStatus, DailyReview, ReviewMood } from '@/src/storage/entities';
 import { todayISODate, generateId, nowISO } from '@/src/storage/repository';
-import { priorityColors, categoryColors } from '@/src/utils/taskUtils';
+import { priorityColors, categoryColors, completeRepeatingTask } from '@/src/utils/taskUtils';
 import { moveTaskToTomorrow } from '@/src/utils/rolloverUtils';
-import { cancelTaskReminders, rescheduleTaskReminders } from '@/src/notifications';
+import { cancelTaskReminders, rescheduleTaskReminders, scheduleTaskReminders } from '@/src/notifications';
 import { Card, Button, EmptyState } from '@/src/components';
 
 const MOODS: { key: ReviewMood; icon: typeof Smile; color: string; arLabel: string; enLabel: string }[] = [
@@ -98,7 +98,14 @@ export default function DailyReviewScreen() {
   };
 
   const handleMarkDone = async (task: Task) => {
-    await taskRepository.update(task.id, { status: 'done' as TaskStatus, completedAt: new Date().toISOString() });
+    if (task.status !== 'done') {
+      const { nextOccurrence, completed } = completeRepeatingTask(task);
+      if (nextOccurrence) {
+        await taskRepository.create(nextOccurrence);
+        await scheduleTaskReminders(nextOccurrence);
+      }
+      await taskRepository.update(task.id, completed);
+    }
     await cancelTaskReminders(task.id);
     await load();
   };
