@@ -343,6 +343,12 @@ export type TranslationKey =
   | 'update.ok'
   | 'update.noUpdate'
   | 'update.error'
+  | 'update.downloading'
+  | 'update.installing'
+  | 'update.downloadFailed'
+  | 'update.retry'
+  | 'update.openBrowser'
+  | 'update.installHint'
   | 'common.add'
   | 'common.edit'
   | 'common.delete'
@@ -843,6 +849,12 @@ export const translations: Record<Language, Translations> = {
     'update.ok': 'حسنًا',
     'update.noUpdate': 'أنت تستخدم أحدث إصدار بالفعل',
     'update.error': 'تعذّر البحث عن التحديثات. تأكد من الاتصال بالإنترنت وحاول مرة أخرى.',
+    'update.downloading': 'جاري تحميل التحديث...',
+    'update.installing': 'جاري فتح المُثبّت...',
+    'update.downloadFailed': 'فشل تحميل التحديث. تأكد من الاتصال وحاول مرة أخرى.',
+    'update.retry': 'إعادة المحاولة',
+    'update.openBrowser': 'فتح المتصفح بدلاً من ذلك',
+    'update.installHint': 'لو طلب النظام السماح بتثبيت تطبيقات غير معروفة، فعّل الخيار وارجع لإتمام التثبيت.',
     'common.add': 'إضافة',
     'common.edit': 'تعديل',
     'common.delete': 'حذف',
@@ -1340,6 +1352,12 @@ export const translations: Record<Language, Translations> = {
     'update.ok': 'OK',
     'update.noUpdate': 'You are already on the latest version',
     'update.error': 'Could not check for updates. Check your connection and try again.',
+    'update.downloading': 'Downloading update...',
+    'update.installing': 'Opening installer...',
+    'update.downloadFailed': 'Could not download the update. Check your connection and try again.',
+    'update.retry': 'Retry',
+    'update.openBrowser': 'Open in browser instead',
+    'update.installHint': 'If Android asks to allow installing unknown apps, enable it and return to finish the install.',
     'common.add': 'Add',
     'common.edit': 'Edit',
     'common.delete': 'Delete',

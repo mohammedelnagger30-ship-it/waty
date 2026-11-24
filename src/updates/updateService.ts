@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
-import { Linking } from 'react-native';
+import { Linking, NativeModules, Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const REPO_OWNER = 'mohammedelnagger30-ship-it';
 const REPO_NAME = 'waty';
@@ -15,6 +16,12 @@ export interface UpdateInfo {
   notesEn?: string;
   apkUrl?: string;
   releaseUrl?: string;
+}
+
+export interface DownloadProgress {
+  written: number;
+  total: number;
+  percent: number;
 }
 
 interface UpdateManifest extends UpdateInfo {
@@ -84,7 +91,63 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
   }
 }
 
-/** Opens the APK download (or the release page) in the browser. */
+let activeTask: FileSystem.DownloadResumable | null = null;
+
+export function cancelDownload(): void {
+  void activeTask?.cancelAsync().catch(() => {});
+  activeTask = null;
+}
+
+/** Downloads the APK into the app's own cache, reporting progress. */
+export async function downloadUpdate(
+  info: UpdateInfo,
+  onProgress: (progress: DownloadProgress) => void,
+): Promise<string> {
+  const url = info.apkUrl;
+  if (!url) throw new Error('No APK URL');
+  const cache = FileSystem.cacheDirectory;
+  if (!cache) throw new Error('No cache directory');
+
+  const fileUri = `${cache}orbit-update.apk`;
+  try {
+    await FileSystem.deleteAsync(fileUri, { idempotent: true });
+  } catch {
+    // A stale file is harmless; the download overwrites it.
+  }
+
+  const task = FileSystem.createDownloadResumable(
+    url,
+    fileUri,
+    {},
+    ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+      const total = totalBytesExpectedToWrite || 0;
+      onProgress({
+        written: totalBytesWritten,
+        total,
+        percent: total > 0 ? Math.min(100, Math.round((totalBytesWritten / total) * 100)) : 0,
+      });
+    },
+  );
+
+  activeTask = task;
+  const result = await task.downloadAsync();
+  activeTask = null;
+  if (!result || (result.status >= 300 && result.status !== 0)) {
+    throw new Error(`Download failed: ${result?.status ?? 'unknown'}`);
+  }
+  return result.uri;
+}
+
+/** Hands the downloaded APK to Android's package installer. */
+export function installUpdate(fileUri: string): boolean {
+  if (Platform.OS !== 'android') return false;
+  const installer = NativeModules.ApkInstaller as { install?: (uri: string) => void } | undefined;
+  if (!installer?.install) return false;
+  installer.install(fileUri);
+  return true;
+}
+
+/** Browser fallback, only used if the in-app install path is unavailable. */
 export async function openDownload(info: UpdateInfo): Promise<void> {
   const url = info.apkUrl || info.releaseUrl;
   if (!url) return;

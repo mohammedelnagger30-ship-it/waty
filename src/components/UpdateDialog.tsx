@@ -1,26 +1,69 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { DownloadCloud } from 'lucide-react-native';
 import { Button } from './Button';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, radius, typography } from '@/src/theme';
-import { getCurrentVersion, openDownload, type UpdateInfo } from '@/src/updates/updateService';
+import {
+  cancelDownload,
+  downloadUpdate,
+  getCurrentVersion,
+  installUpdate,
+  openDownload,
+  type DownloadProgress,
+  type UpdateInfo,
+} from '@/src/updates/updateService';
 
 interface UpdateDialogProps {
   info: UpdateInfo | null;
   onDismiss: () => void;
 }
 
+type Phase = 'idle' | 'downloading' | 'installing' | 'failed';
+
 export function UpdateDialog({ info, onDismiss }: UpdateDialogProps) {
   const { theme } = useTheme();
   const { t, language, isRTL } = useI18n();
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [progress, setProgress] = useState<DownloadProgress>({ written: 0, total: 0, percent: 0 });
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    if (info) {
+      setPhase('idle');
+      setProgress({ written: 0, total: 0, percent: 0 });
+      cancelledRef.current = false;
+    }
+  }, [info]);
+
   if (!info) return null;
 
   const notes = language === 'ar' ? info.notes || info.notesEn : info.notesEn || info.notes;
 
-  const handleDownload = () => {
-    onDismiss();
-    void openDownload(info);
+  const handleDownload = async () => {
+    cancelledRef.current = false;
+    setPhase('downloading');
+    setProgress({ written: 0, total: 0, percent: 0 });
+    try {
+      const uri = await downloadUpdate(info, setProgress);
+      setPhase('installing');
+      const opened = installUpdate(uri);
+      if (!opened) {
+        await openDownload(info);
+      }
+      onDismiss();
+    } catch {
+      if (!cancelledRef.current) setPhase('failed');
+    }
   };
 
   return (
@@ -85,13 +128,86 @@ export function UpdateDialog({ info, onDismiss }: UpdateDialogProps) {
             </ScrollView>
           ) : null}
 
+          {phase === 'downloading' ? (
+            <View style={styles.progressWrap}>
+              <View style={styles.progressLabels}>
+                <Text style={[styles.progressText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                  {t('update.downloading')}
+                </Text>
+                <Text style={[styles.progressText, { color: theme.primary[500], fontFamily: typography.fontFamilyBold }]}>
+                  {`${progress.percent}%`}
+                </Text>
+              </View>
+              <View style={[styles.progressTrack, { backgroundColor: theme.border, direction: isRTL ? 'rtl' : 'ltr' }]}>
+                <View style={[styles.progressFill, { backgroundColor: theme.primary[500], width: `${progress.percent}%` }]} />
+              </View>
+            </View>
+          ) : null}
+
+          {phase === 'installing' ? (
+            <View style={styles.installingRow}>
+              <ActivityIndicator size="small" color={theme.primary[500]} />
+              <Text style={[styles.progressText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                {t('update.installing')}
+              </Text>
+            </View>
+          ) : null}
+
+          {phase === 'failed' ? (
+            <Text style={[styles.errorText, { color: theme.error, fontFamily: typography.fontFamily }]}>
+              {t('update.downloadFailed')}
+            </Text>
+          ) : (
+            <Text
+              style={[
+                styles.hintText,
+                {
+                  color: theme.text.tertiary,
+                  fontFamily: typography.fontFamily,
+                  textAlign: isRTL ? 'right' : 'left',
+                },
+              ]}
+            >
+              {t('update.installHint')}
+            </Text>
+          )}
+
           <View style={styles.actions}>
-            <Button variant="ghost" onPress={onDismiss} style={styles.laterButton}>
-              {t('update.later')}
-            </Button>
-            <Button variant="primary" onPress={handleDownload} icon={<DownloadCloud size={17} color="#FFFFFF" />}>
-              {t('update.download')}
-            </Button>
+            {phase === 'downloading' ? (
+              <Button
+                variant="ghost"
+                onPress={() => {
+                  cancelledRef.current = true;
+                  cancelDownload();
+                  setPhase('idle');
+                }}
+              >
+                {t('update.later')}
+              </Button>
+            ) : phase === 'failed' ? (
+              <>
+                <Button variant="ghost" onPress={onDismiss}>{t('update.later')}</Button>
+                <Button variant="outline" onPress={() => { void openDownload(info); }}>
+                  {t('update.openBrowser')}
+                </Button>
+                <Button variant="primary" onPress={() => { void handleDownload(); }}>
+                  {t('update.retry')}
+                </Button>
+              </>
+            ) : phase === 'installing' ? null : (
+              <>
+                <Button variant="ghost" onPress={onDismiss} style={styles.laterButton}>
+                  {t('update.later')}
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={() => { void handleDownload(); }}
+                  icon={<DownloadCloud size={17} color="#FFFFFF" />}
+                >
+                  {t('update.download')}
+                </Button>
+              </>
+            )}
           </View>
         </Pressable>
       </Pressable>
@@ -178,6 +294,41 @@ const styles = StyleSheet.create({
   notes: {
     fontSize: typography.sizes.sm,
     lineHeight: 22,
+  },
+  progressWrap: {
+    gap: 6,
+    marginTop: spacing.sm,
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressText: {
+    fontSize: typography.sizes.sm,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  installingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  errorText: {
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.xs,
+  },
+  hintText: {
+    fontSize: typography.sizes.xs,
+    lineHeight: 17,
+    marginTop: spacing.xs,
   },
   actions: {
     flexDirection: 'row',
