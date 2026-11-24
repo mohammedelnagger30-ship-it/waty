@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Plus, X, Check, Trash2, Clock, Calendar, Tag as TagIcon, Repeat, StickyNote, ListChecks } from 'lucide-react-native';
+import { Plus, X, Check, Trash2, Clock, Calendar, Tag as TagIcon, Repeat, StickyNote, ListChecks, BellRing, Volume2 } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
@@ -18,7 +18,8 @@ import { Button } from './Button';
 import { Chip } from './Chip';
 import { Input } from './Input';
 import { QuickTimeChips } from './QuickTimeChips';
-import { Task, TaskPriority, TaskCategory, RepeatType, Subtask, ReminderOffset } from '@/src/storage/entities';
+import { Task, TaskPriority, TaskCategory, RepeatType, Subtask, ReminderOffset, AlarmSoundId } from '@/src/storage/entities';
+import { ALARM_PRESETS, previewAlarm } from '@/src/notifications';
 import {
   createDefaultTask,
   createSubtask,
@@ -265,6 +266,51 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
                 />
               </View>
             )}
+          </View>
+
+          {/* Loud alarm with a different tone + vibration for each task */}
+          <View style={styles.fieldGap}>
+            <View style={styles.alarmHeader}>
+              <BellRing size={17} color={theme.primary[500]} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+                  {t('alarm.title')}
+                </Text>
+                <Text style={[styles.fieldHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                  {t('alarm.subtitle')}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.chipRow}>
+              {ALARM_PRESETS.map((preset) => (
+                <Chip
+                  key={preset.id}
+                  selected={(task.alarmSound ?? ALARM_PRESETS[0].id) === preset.id}
+                  onPress={() => update({ alarmSound: preset.id as AlarmSoundId })}
+                >
+                  {t(preset.labelKey as TranslationKey)}
+                </Chip>
+              ))}
+            </View>
+            <View style={styles.alarmFooter}>
+              <Text style={[styles.fieldHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily, flex: 1 }]}>
+                {t(
+                  ALARM_PRESETS.find((p) => p.id === (task.alarmSound ?? ALARM_PRESETS[0].id))!.descKey as TranslationKey,
+                )}
+              </Text>
+              <Pressable
+                onPress={() => { void previewAlarm(task.alarmSound ?? ALARM_PRESETS[0].id); }}
+                style={({ pressed }) => [
+                  styles.previewBtn,
+                  { backgroundColor: theme.primary[500] + '1F', opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Volume2 size={15} color={theme.primary[500]} />
+                <Text style={{ color: theme.primary[500], fontFamily: typography.fontFamilySemiBold, fontSize: typography.sizes.sm }}>
+                  {t('alarm.test')}
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Estimated duration & Deadline row */}
@@ -549,6 +595,29 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: typography.sizes.sm,
     marginBottom: spacing.xs,
+  },
+  fieldHint: {
+    fontSize: typography.sizes.xs,
+    marginBottom: spacing.xs,
+  },
+  alarmHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  alarmFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  previewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.pill,
   },
   dateInput: {
     flexDirection: 'row',

@@ -53,6 +53,26 @@ export interface Task {
   isMIT?: boolean; // Most Important Task flag
   reminderOffsets?: ReminderOffset[]; // per-task overrides; undefined = use global defaults, [] = none
   reminderCustomMinutes?: number; // used when 'custom' is selected
+  /** Alarm tone used for the "at time" reminder. Falls back to global setting. */
+  alarmSound?: AlarmSoundId;
+}
+
+/** A reusable task recipe for routines and repeated work. */
+export interface TaskTemplate {
+  id: string;
+  title: string;
+  description?: string;
+  category: TaskCategory;
+  priority: TaskPriority;
+  estimatedMinutes?: number;
+  tags: string[];
+  subtaskTitles: string[];
+  repeat: RepeatType;
+  isMIT?: boolean;
+  reminderOffsets?: ReminderOffset[];
+  reminderCustomMinutes?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Goal {
@@ -145,6 +165,9 @@ export interface Settings {
 
 export type ReminderOffset = 'at_time' | '5' | '10' | '15' | '30' | '60' | 'custom';
 
+/** Loud alarm tones bundled as local Android notification sounds. */
+export type AlarmSoundId = 'bell' | 'digital' | 'siren' | 'chime' | 'pulse';
+
 export interface TaskReminder {
   id: string;
   taskId: string;
@@ -173,6 +196,8 @@ export interface NotificationSettings {
   // Smart nudge: reminds about tasks due today that have no fixed time.
   untimedTaskReminderEnabled: boolean;
   untimedTaskReminderTime: string; // HH:mm
+  /** Default alarm tone + vibration signature for task-time reminders. */
+  alarmSound?: AlarmSoundId;
 }
 
 export interface PomodoroSession {
@@ -199,4 +224,4 @@ export interface WeeklyReview {
   updatedAt: string;
 }
 
-export type EntityType = 'tasks' | 'goals' | 'plans' | 'habits' | 'reviews' | 'settings' | 'pomodoros' | 'reminders' | 'notif_settings' | 'weekly_reviews';
+export type EntityType = 'tasks' | 'goals' | 'plans' | 'habits' | 'reviews' | 'settings' | 'pomodoros' | 'reminders' | 'notif_settings' | 'weekly_reviews' | 'task_templates';

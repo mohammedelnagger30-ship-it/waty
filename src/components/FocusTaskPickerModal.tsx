@@ -12,15 +12,16 @@ interface FocusTaskPickerModalProps {
   onClose: () => void;
   tasks: Task[];
   onSelect: (task: Task) => void;
+  title?: string;
 }
 
-/** Lets the "Start focus" quick action choose which task to focus on. */
-export function FocusTaskPickerModal({ visible, onClose, tasks, onSelect }: FocusTaskPickerModalProps) {
+/** Generic task picker used by "Start focus" and "new template from task". */
+export function FocusTaskPickerModal({ visible, onClose, tasks, onSelect, title }: FocusTaskPickerModalProps) {
   const { theme } = useTheme();
   const { t } = useI18n();
 
   return (
-    <ModalSheet visible={visible} onClose={onClose} title={t('today.startFocus')}>
+    <ModalSheet visible={visible} onClose={onClose} title={title ?? t('today.startFocus')}>
       {tasks.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>

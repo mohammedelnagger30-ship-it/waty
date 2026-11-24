@@ -1,4 +1,4 @@
-import { Task, TaskPriority, TaskStatus, TaskCategory, RepeatType, Subtask } from '@/src/storage/entities';
+import { Task, TaskPriority, TaskStatus, TaskCategory, RepeatType, Subtask, TaskTemplate } from '@/src/storage/entities';
 import { generateId, nowISO, todayISODate } from '@/src/storage/repository';
 
 export type DateGroup = 'overdue' | 'today' | 'tomorrow' | 'thisWeek' | 'later';
@@ -275,6 +275,41 @@ export function createSubtask(title: string): Subtask {
     id: generateId(),
     title,
     done: false,
+  };
+}
+
+/** Build a fresh task from a reusable template recipe. */
+export function taskFromTemplate(template: TaskTemplate, overrides: Partial<Task> = {}): Task {
+  return createDefaultTask({
+    title: template.title,
+    description: template.description,
+    category: template.category,
+    priority: template.priority,
+    estimatedMinutes: template.estimatedMinutes,
+    tags: [...template.tags],
+    subtasks: template.subtaskTitles.map(createSubtask),
+    repeat: template.repeat,
+    isMIT: template.isMIT,
+    reminderOffsets: template.reminderOffsets ? [...template.reminderOffsets] : undefined,
+    reminderCustomMinutes: template.reminderCustomMinutes,
+    ...overrides,
+  });
+}
+
+/** Turn an existing task into a template recipe (metadata only, no progress). */
+export function templateFromTask(task: Task): Omit<TaskTemplate, 'id' | 'createdAt' | 'updatedAt'> {
+  return {
+    title: task.title,
+    description: task.description,
+    category: task.category,
+    priority: task.priority,
+    estimatedMinutes: task.estimatedMinutes,
+    tags: [...task.tags],
+    subtaskTitles: task.subtasks.map((s) => s.title),
+    repeat: task.repeat,
+    isMIT: task.isMIT,
+    reminderOffsets: task.reminderOffsets ? [...task.reminderOffsets] : undefined,
+    reminderCustomMinutes: task.reminderCustomMinutes,
   };
 }
 

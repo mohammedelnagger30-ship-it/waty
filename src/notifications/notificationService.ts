@@ -1,10 +1,11 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
-import { Task, TaskReminder, ReminderOffset, NotificationSettings } from '@/src/storage/entities';
+import { Task, TaskReminder, ReminderOffset, NotificationSettings, AlarmSoundId } from '@/src/storage/entities';
 import { taskRepository, reminderRepository, notificationSettingsRepository, habitRepository } from '@/src/storage';
 import { generateId } from '@/src/storage/repository';
 import { completeRepeatingTask } from '@/src/utils/taskUtils';
+import { ALARM_PRESETS, getAlarmPreset } from './alarmOptions';
 
 // --- Notification channel setup ---
 
@@ -14,6 +15,8 @@ export const NOTIF_CHANNELS = {
   summary: 'summary',
   overdue: 'overdue',
   habits: 'habits',
+  silentVibrate: 'silent_vibrate',
+  silent: 'silent',
 } as const;
 
 export async function setupNotificationChannels(): Promise<void> {
@@ -55,6 +58,56 @@ export async function setupNotificationChannels(): Promise<void> {
     description: 'تذكيرات يومية للعادات',
     importance: Notifications.AndroidImportance.DEFAULT,
     lightColor: '#F59E0B',
+  });
+
+  // One loud alarm channel per tone. Android 8+ takes sound and vibration from
+  // the channel, so separate channels are required for genuinely different alarms.
+  for (const preset of ALARM_PRESETS) {
+    await Notifications.setNotificationChannelAsync(preset.channelId, {
+      name: `منبه: ${preset.nameAr}`,
+      description: 'منبه صوتي وقوي مع اهتزاز عند موعد المهمة',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: preset.sound,
+      vibrationPattern: preset.vibrationPattern,
+      lightColor: preset.lightColor,
+      bypassDnd: true,
+      audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM },
+    });
+  }
+
+  await Notifications.setNotificationChannelAsync(NOTIF_CHANNELS.silentVibrate, {
+    name: 'تذكير باهتزاز فقط',
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: null,
+    vibrationPattern: [0, 500, 200, 500, 200, 1200],
+  });
+
+  await Notifications.setNotificationChannelAsync(NOTIF_CHANNELS.silent, {
+    name: 'تذكير صامت',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: null,
+    vibrationPattern: [0],
+  });
+}
+
+/** Fire an immediate alarm notification so users can compare tones in-app. */
+export async function previewAlarm(soundId?: AlarmSoundId): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await setupNotificationChannels();
+  const preset = getAlarmPreset(soundId);
+  const routing = getChannelForReminder('at_time', preset.id, true, true);
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `تجربة المنبه: ${preset.nameAr}`,
+      body: 'كدة هيطلع المنبه عند موعد المهمة 🔔',
+      data: { type: 'alarm_preview' },
+      sound: routing.sound,
+      vibrate: routing.vibrate,
+      ...(Platform.OS === 'android'
+        ? { channelId: routing.channelId, priority: Notifications.AndroidNotificationPriority.MAX }
+        : {}),
+    },
+    trigger: null,
   });
 }
 
@@ -139,8 +192,38 @@ function reminderOffsetMinutes(offset: ReminderOffset, customMinutes?: number): 
   }
 }
 
-function getChannelForReminder(offset: ReminderOffset): string {
-  return offset === 'at_time' ? NOTIF_CHANNELS.reminders : NOTIF_CHANNELS.reminders;
+interface AlarmRouting {
+  channelId: string;
+  sound?: string;
+  vibrate?: number[];
+}
+
+function getChannelForReminder(
+  offset: ReminderOffset,
+  alarmSound: string | undefined,
+  soundEnabled: boolean,
+  vibrationEnabled: boolean,
+): AlarmRouting {
+  if (offset !== 'at_time') {
+    return {
+      channelId: NOTIF_CHANNELS.reminders,
+      sound: soundEnabled ? 'default' : undefined,
+      vibrate: vibrationEnabled ? [0, 250, 250, 250] : undefined,
+    };
+  }
+
+  const preset = getAlarmPreset(alarmSound as AlarmSoundId | undefined);
+  if (!soundEnabled) {
+    return {
+      channelId: vibrationEnabled ? NOTIF_CHANNELS.silentVibrate : NOTIF_CHANNELS.silent,
+      vibrate: vibrationEnabled ? preset.vibrationPattern : undefined,
+    };
+  }
+  return {
+    channelId: preset.channelId,
+    sound: Platform.OS === 'android' ? preset.sound : 'default',
+    vibrate: vibrationEnabled ? preset.vibrationPattern : undefined,
+  };
 }
 
 function buildTriggerDate(task: Task, offsetMinutes: number): Date | null {
@@ -161,6 +244,7 @@ interface ScheduleInput {
   date: string;
   offset: ReminderOffset;
   customMinutes?: number;
+  alarmSound?: AlarmSoundId;
   body?: string;
 }
 
@@ -185,21 +269,26 @@ async function scheduleOneReminder(input: ScheduleInput): Promise<string | null>
   const minutesBefore = offsetMin === 0 ? '' : `قبل ${offsetMin} دقيقة - `;
   const bodyText = input.body ?? `${minutesBefore}${input.taskTime ?? ''}`;
 
-  const channelId = getChannelForReminder(input.offset);
+  const routing = getChannelForReminder(
+    input.offset,
+    input.alarmSound,
+    notifSettings.soundEnabled,
+    notifSettings.vibrationEnabled,
+  );
   const priority: Notifications.AndroidNotificationPriority =
-    offsetMin === 0
-      ? Notifications.AndroidNotificationPriority.HIGH
+    input.offset === 'at_time'
+      ? Notifications.AndroidNotificationPriority.MAX
       : Notifications.AndroidNotificationPriority.DEFAULT;
 
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: input.taskTitle,
       body: bodyText,
-      data: { taskId: input.taskId, type: 'reminder' },
-      sound: notifSettings.soundEnabled ? 'default' : undefined,
-      vibrate: notifSettings.vibrationEnabled ? [0, 250, 250, 250] : undefined,
+      data: { taskId: input.taskId, type: 'reminder', alarm: input.offset === 'at_time' },
+      sound: routing.sound,
+      vibrate: routing.vibrate,
       categoryIdentifier: 'task_reminder',
-      ...(Platform.OS === 'android' ? { channelId, priority } : {}),
+      ...(Platform.OS === 'android' ? { channelId: routing.channelId, priority } : {}),
     },
     trigger: {
       type: SchedulableTriggerInputTypes.DATE,
@@ -240,6 +329,7 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
       date: task.date,
       offset,
       customMinutes: reminder.customMinutes,
+      alarmSound: task.alarmSound ?? notifSettings.alarmSound,
       body: undefined,
     });
 

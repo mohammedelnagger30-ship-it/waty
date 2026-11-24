@@ -24,6 +24,7 @@ import {
   Focus,
   ClipboardList,
   CalendarDays,
+  Sparkles,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -181,6 +182,26 @@ export default function TodayScreen() {
 
   const untimedTasks = useMemo(() => {
     return activeTasks.filter((t) => !t.time);
+  }, [activeTasks]);
+
+  // Suggest the task that deserves attention right now: MIT first, then
+  // priority, then anything due/overdue, then the quickest win.
+  const suggestedTask = useMemo(() => {
+    if (activeTasks.length === 0) return null;
+    const score = (task: Task) => {
+      let value = task.isMIT ? 100 : 0;
+      value += task.priority === 'high' ? 40 : task.priority === 'medium' ? 20 : 0;
+      if (task.time) {
+        const [h, m] = task.time.split(':').map(Number);
+        const due = h * 60 + (m || 0);
+        const now = new Date().getHours() * 60 + new Date().getMinutes();
+        if (due <= now) value += 30;
+        else if (due - now <= 120) value += 15;
+      }
+      value += Math.max(0, 20 - (task.estimatedMinutes ?? 20));
+      return value;
+    };
+    return [...activeTasks].sort((a, b) => score(b) - score(a))[0];
   }, [activeTasks]);
 
   // Date strings are computed once per minute instead of on every render.
@@ -454,6 +475,41 @@ export default function TodayScreen() {
             theme.text.tertiary,
           )}
         </View>
+
+        {/* Smart suggestion */}
+        {suggestedTask && (
+          <Pressable
+            onPress={() => router.push(`/tasks/${suggestedTask.id}`)}
+            style={({ pressed }) => [
+              styles.suggestionCard,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.primary[500] + '44',
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <View style={[styles.suggestionIcon, { backgroundColor: theme.primary[500] + '1F' }]}>
+              <Sparkles size={20} color={theme.primary[500]} />
+            </View>
+            <View style={styles.suggestionText}>
+              <Text style={[styles.suggestionLabel, { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold }]}>
+                {t('today.suggestion')}
+              </Text>
+              <Text style={[styles.suggestionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]} numberOfLines={1}>
+                {suggestedTask.title}
+              </Text>
+              <Text style={[styles.suggestionDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('today.suggestionDesc')}
+              </Text>
+            </View>
+            <View style={[styles.suggestionStart, { backgroundColor: theme.primary[500] }]}>
+              <Text style={[styles.suggestionStartText, { color: '#FFFFFF', fontFamily: typography.fontFamilySemiBold }]}>
+                {t('today.start')}
+              </Text>
+            </View>
+          </Pressable>
+        )}
 
         {/* Most Important 3 */}
         <View style={styles.sectionHeader}>
@@ -752,6 +808,32 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     textAlign: 'center',
   },
+  suggestionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  suggestionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestionText: { flex: 1, gap: 2 },
+  suggestionLabel: { fontSize: typography.sizes.xs },
+  suggestionTitle: { fontSize: typography.sizes.md },
+  suggestionDesc: { fontSize: typography.sizes.xs },
+  suggestionStart: {
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+  },
+  suggestionStartText: { fontSize: typography.sizes.sm },
   sectionHeader: {
     gap: 2,
     marginBottom: spacing.sm,

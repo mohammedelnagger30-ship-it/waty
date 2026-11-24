@@ -21,6 +21,7 @@ import {
   MoonStar,
   CheckCircle2,
   Send,
+  BellRing,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { BackArrow } from '@/src/components/BackArrow';
@@ -31,10 +32,12 @@ import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { Card, Toggle, Chip, Button } from '@/src/components';
 import { notificationSettingsRepository } from '@/src/storage';
-import { NotificationSettings, ReminderOffset } from '@/src/storage/entities';
+import { NotificationSettings, ReminderOffset, AlarmSoundId } from '@/src/storage/entities';
 import {
   requestNotificationPermissions,
   rescheduleAllNotifications,
+  previewAlarm,
+  ALARM_PRESETS,
   NOTIF_CHANNELS,
 } from '@/src/notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
@@ -499,6 +502,51 @@ export default function NotificationSettingsScreen() {
           </View>
         </Card>
 
+        {/* Loud alarm tones used at the exact task time */}
+        <Text style={[styles.groupLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
+          {t('alarm.title')}
+        </Text>
+        <Card style={styles.section}>
+          <View style={styles.simpleRowLeft}>
+            <BellRing size={20} color={theme.primary[500]} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+                {t('alarm.tone')}
+              </Text>
+              <Text style={[styles.sectionDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                {t('alarm.subtitle')}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={styles.alarmChips}>
+            {ALARM_PRESETS.map((preset) => (
+              <Chip
+                key={preset.id}
+                selected={(settings.alarmSound ?? ALARM_PRESETS[0].id) === preset.id}
+                onPress={async () => {
+                  await updateSettings({ alarmSound: preset.id as AlarmSoundId });
+                  await rescheduleAllNotifications();
+                }}
+              >
+                {t(preset.labelKey as Parameters<typeof t>[0])}
+              </Chip>
+            ))}
+          </View>
+          <Pressable
+            onPress={() => { void previewAlarm(settings.alarmSound); }}
+            style={({ pressed }) => [
+              styles.alarmPreview,
+              { backgroundColor: theme.primary[500] + '1F', opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Volume2 size={17} color={theme.primary[500]} />
+            <Text style={{ color: theme.primary[500], fontFamily: typography.fontFamilySemiBold, fontSize: typography.sizes.sm }}>
+              {t('alarm.test')}
+            </Text>
+          </Pressable>
+        </Card>
+
         {/* Test notification */}
         <Pressable
           onPress={handleTestNotification}
@@ -645,6 +693,21 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: spacing.md,
+  },
+  alarmChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  alarmPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
   },
   sectionHeader: {
     flexDirection: 'row',

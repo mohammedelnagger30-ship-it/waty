@@ -5,7 +5,9 @@ import {
   ScrollView,
   Text,
   RefreshControl,
+  Pressable,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   BarChart3,
   CheckSquare,
@@ -16,6 +18,7 @@ import {
   TrendingUp,
   Smile,
   Award,
+  History,
 } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -37,6 +40,7 @@ const PERIODS: Period[] = ['7', '30', 'all'];
 export default function StatsScreen() {
   const { theme } = useTheme();
   const { t, language, isRTL } = useI18n();
+  const router = useRouter();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -95,7 +99,15 @@ export default function StatsScreen() {
   if (!hasData) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <ScreenHeader title={t('stats.title')} subtitle={t('stats.subtitle')} />
+        <ScreenHeader
+          title={t('stats.title')}
+          subtitle={t('stats.subtitle')}
+          right={(
+            <Pressable onPress={() => router.push('/focus-history')} hitSlop={10} style={{ padding: 8 }}>
+              <History size={22} color={theme.primary[500]} />
+            </Pressable>
+          )}
+        />
         <View style={styles.empty}>
           <EmptyState
             icon={<BarChart3 size={36} color={theme.text.tertiary} />}
@@ -109,7 +121,15 @@ export default function StatsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScreenHeader title={t('stats.title')} subtitle={t('stats.subtitle')} />
+      <ScreenHeader
+          title={t('stats.title')}
+          subtitle={t('stats.subtitle')}
+          right={(
+            <Pressable onPress={() => router.push('/focus-history')} hitSlop={10} style={{ padding: 8 }}>
+              <History size={22} color={theme.primary[500]} />
+            </Pressable>
+          )}
+        />
 
       <ScrollView
         style={styles.content}

@@ -20,6 +20,7 @@ import {
   reminderRepository,
   settingsRepository,
   notificationSettingsRepository,
+  taskTemplateRepository,
 } from '@/src/storage';
 import { todayISODate } from '@/src/storage/repository';
 import { cancelAllReminders, rescheduleAllNotifications } from '@/src/notifications';
@@ -35,13 +36,14 @@ const BACKUP_KEYS = [
   'reminders',
   'settings',
   'notif_settings',
+  'task_templates',
 ] as const;
 
 type BackupKey = (typeof BACKUP_KEYS)[number];
 
 // Old backups (version 1) did not include settings; those keys stay optional
 // on import so an old backup never fails or wipes current preferences.
-const OPTIONAL_KEYS: BackupKey[] = ['settings', 'notif_settings'];
+const OPTIONAL_KEYS: BackupKey[] = ['settings', 'notif_settings', 'task_templates'];
 
 const repositories: Record<BackupKey, { getAll: () => Promise<unknown[]>; replaceAll: (items: never[]) => Promise<void> }> = {
   tasks: taskRepository as never,
@@ -54,6 +56,7 @@ const repositories: Record<BackupKey, { getAll: () => Promise<unknown[]>; replac
   reminders: reminderRepository as never,
   settings: settingsRepository as never,
   notif_settings: notificationSettingsRepository as never,
+  task_templates: taskTemplateRepository as never,
 };
 
 export default function DataScreen() {
@@ -73,7 +76,7 @@ export default function DataScreen() {
       );
       const payload = {
         app: 'waqty',
-        version: 2,
+        version: 3,
         exportedAt: new Date().toISOString(),
         data: Object.fromEntries(collections),
       };

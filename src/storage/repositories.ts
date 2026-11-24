@@ -1,4 +1,4 @@
-import { Task, Goal, Plan, Habit, DailyReview, Settings, PomodoroSession, TaskReminder, NotificationSettings, WeeklyReview } from './entities';
+import { Task, Goal, Plan, Habit, DailyReview, Settings, PomodoroSession, TaskReminder, NotificationSettings, WeeklyReview, TaskTemplate } from './entities';
 import { createRepository, Repository } from './repository';
 
 export const taskRepository: Repository<Task> = createRepository<Task>('tasks');
@@ -9,6 +9,7 @@ export const reviewRepository: Repository<DailyReview> = createRepository<DailyR
 export const pomodoroRepository: Repository<PomodoroSession> = createRepository<PomodoroSession>('pomodoros');
 export const reminderRepository: Repository<TaskReminder> = createRepository<TaskReminder>('reminders');
 export const weeklyReviewRepository: Repository<WeeklyReview> = createRepository<WeeklyReview>('weekly_reviews');
+export const taskTemplateRepository: Repository<TaskTemplate> = createRepository<TaskTemplate>('task_templates');
 
 const SETTINGS_ID = 'app-settings';
 const NOTIF_SETTINGS_ID = 'notif-settings';
@@ -63,6 +64,7 @@ export function defaultNotificationSettings(): Omit<NotificationSettings, 'id'> 
     habitReminderTime: '09:00',
     untimedTaskReminderEnabled: true,
     untimedTaskReminderTime: '16:00',
+    alarmSound: 'bell',
   };
 }
 

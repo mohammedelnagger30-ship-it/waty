@@ -107,12 +107,49 @@ export type TranslationKey =
   | 'pomodoro.longBreakDuration'
   | 'pomodoro.longBreak'
   | 'pomodoro.autoStart'
+  | 'alarm.title'
+  | 'alarm.subtitle'
+  | 'alarm.tone'
+  | 'alarm.test'
+  | 'alarm.bell'
+  | 'alarm.digital'
+  | 'alarm.siren'
+  | 'alarm.chime'
+  | 'alarm.pulse'
+  | 'alarm.bellDesc'
+  | 'alarm.digitalDesc'
+  | 'alarm.sirenDesc'
+  | 'alarm.chimeDesc'
+  | 'alarm.pulseDesc'
   | 'plans.title'
   | 'plans.subtitle'
   | 'plans.noPlans'
   | 'plans.noPlansDesc'
   | 'plans.addPlan'
   | 'stats.title'
+  | 'focus.title'
+  | 'focus.subtitle'
+  | 'focus.empty'
+  | 'focus.emptyDesc'
+  | 'focus.total'
+  | 'focus.sessions'
+  | 'focus.focus'
+  | 'focus.break'
+  | 'focus.viewHistory'
+  | 'templates.title'
+  | 'templates.subtitle'
+  | 'templates.new'
+  | 'templates.edit'
+  | 'templates.empty'
+  | 'templates.emptyDesc'
+  | 'templates.use'
+  | 'templates.fromTask'
+  | 'templates.field.title'
+  | 'templates.field.description'
+  | 'templates.field.subtasks'
+  | 'templates.field.tags'
+  | 'templates.created'
+  | 'templates.deleted'
   | 'stats.subtitle'
   | 'stats.noData'
   | 'stats.noDataDesc'
@@ -388,6 +425,9 @@ export type TranslationKey =
   | 'today.markMIT'
   | 'today.unmarkMIT'
   | 'today.startFocus'
+  | 'today.suggestion'
+  | 'today.suggestionDesc'
+  | 'today.start'
   | 'today.dailyReview'
   | 'today.quickAdd'
   | 'today.noTimeTasks'
@@ -567,12 +607,49 @@ export const translations: Record<Language, Translations> = {
     'pomodoro.longBreakDuration': 'الاستراحة الطويلة (بعد 4 جلسات)',
     'pomodoro.longBreak': 'استراحة طويلة',
     'pomodoro.autoStart': 'بدء المرحلة التالية تلقائياً',
+    'alarm.title': 'منبه المهمة',
+    'alarm.subtitle': 'صوت عالي واهتزاز مختلف عند الموعد',
+    'alarm.tone': 'نغمة المنبه',
+    'alarm.test': 'جرّب',
+    'alarm.bell': 'جرس',
+    'alarm.digital': 'رقمي',
+    'alarm.siren': 'صفارة',
+    'alarm.chime': 'أجراس',
+    'alarm.pulse': 'نبضات',
+    'alarm.bellDesc': 'جرس كلاسيكي مع اهتزاز متوسط',
+    'alarm.digitalDesc': 'بيبات سريعة مع اهتزاز متقطع',
+    'alarm.sirenDesc': 'صفارة صاعدة مع اهتزاز قوي',
+    'alarm.chimeDesc': 'لحن ممتع مع اهتزاز متدرج',
+    'alarm.pulseDesc': 'نبضات قوية مع اهتزاز عميق',
     'plans.title': 'الخطط والأهداف',
     'plans.subtitle': 'خطط لنجاحك',
     'plans.noPlans': 'لا توجد خطط بعد',
     'plans.noPlansDesc': 'أنشئ خطة أو هدفاً جديداً للبدء',
     'plans.addPlan': 'إضافة خطة',
     'stats.title': 'الإحصائيات',
+    'focus.title': 'سجل التركيز',
+    'focus.subtitle': 'كل جلسات التركيز والاستراحة',
+    'focus.empty': 'مفيش جلسات بعد',
+    'focus.emptyDesc': 'ابدأ جلسة تركيز من أي مهمة',
+    'focus.total': 'إجمالي التركيز',
+    'focus.sessions': 'الجلسات',
+    'focus.focus': 'تركيز',
+    'focus.break': 'استراحة',
+    'focus.viewHistory': 'سجل التركيز',
+    'templates.title': 'قوالب المهام',
+    'templates.subtitle': 'مهام جاهزة بتتكرر معاك',
+    'templates.new': 'قالب جديد',
+    'templates.edit': 'تعديل القالب',
+    'templates.empty': 'مفيش قوالب بعد',
+    'templates.emptyDesc': 'أنشئ قالب للمهام اللي بتتكرر كتير',
+    'templates.use': 'استخدم',
+    'templates.fromTask': 'من مهمة موجودة',
+    'templates.field.title': 'اسم القالب',
+    'templates.field.description': 'الوصف',
+    'templates.field.subtasks': 'الخطوات (سطر لكل خطوة)',
+    'templates.field.tags': 'الوسوم (مفصولة بفاصلة)',
+    'templates.created': 'تم حفظ القالب',
+    'templates.deleted': 'تم حذف القالب',
     'stats.subtitle': 'تتبع تقدمك وإنجازاتك',
     'stats.noData': 'لا توجد بيانات بعد',
     'stats.noDataDesc': 'ابدأ بإضافة المهام والأهداف لرؤية إحصائياتك',
@@ -848,6 +925,9 @@ export const translations: Record<Language, Translations> = {
     'today.markMIT': 'تحديد كأهم مهمة',
     'today.unmarkMIT': 'إلغاء التحديد',
     'today.startFocus': 'ابدأ التركيز',
+    'today.suggestion': 'أنسب مهمة الآن',
+    'today.suggestionDesc': 'حسب الأولوية والموعد',
+    'today.start': 'ابدأ',
     'today.dailyReview': 'مراجعة اليوم',
     'today.quickAdd': 'إضافة سريعة',
     'today.noTimeTasks': 'لا توجد مهام بأوقات',
@@ -1024,12 +1104,49 @@ export const translations: Record<Language, Translations> = {
     'pomodoro.longBreakDuration': 'Long break (after 4 sessions)',
     'pomodoro.longBreak': 'Long break',
     'pomodoro.autoStart': 'Auto-start next phase',
+    'alarm.title': 'Task alarm',
+    'alarm.subtitle': 'Loud tone + vibration at the exact due time',
+    'alarm.tone': 'Alarm tone',
+    'alarm.test': 'Preview',
+    'alarm.bell': 'Bell',
+    'alarm.digital': 'Digital',
+    'alarm.siren': 'Siren',
+    'alarm.chime': 'Chime',
+    'alarm.pulse': 'Pulse',
+    'alarm.bellDesc': 'Classic bell with medium vibration',
+    'alarm.digitalDesc': 'Fast beeps with staccato vibration',
+    'alarm.sirenDesc': 'Rising siren with strong vibration',
+    'alarm.chimeDesc': 'Pleasant melody with stepped vibration',
+    'alarm.pulseDesc': 'Strong pulses with deep vibration',
     'plans.title': 'Plans & Goals',
     'plans.subtitle': 'Plan for your success',
     'plans.noPlans': 'No plans yet',
     'plans.noPlansDesc': 'Create a plan or goal to get started',
     'plans.addPlan': 'Add Plan',
     'stats.title': 'Stats',
+    'focus.title': 'Focus history',
+    'focus.subtitle': 'All your focus and break sessions',
+    'focus.empty': 'No sessions yet',
+    'focus.emptyDesc': 'Start a focus session from any task',
+    'focus.total': 'Total focus',
+    'focus.sessions': 'Sessions',
+    'focus.focus': 'Focus',
+    'focus.break': 'Break',
+    'focus.viewHistory': 'Focus history',
+    'templates.title': 'Task Templates',
+    'templates.subtitle': 'Reusable recipes for recurring work',
+    'templates.new': 'New template',
+    'templates.edit': 'Edit template',
+    'templates.empty': 'No templates yet',
+    'templates.emptyDesc': 'Create a template for tasks you repeat often',
+    'templates.use': 'Use',
+    'templates.fromTask': 'From an existing task',
+    'templates.field.title': 'Template name',
+    'templates.field.description': 'Description',
+    'templates.field.subtasks': 'Steps (one per line)',
+    'templates.field.tags': 'Tags (comma separated)',
+    'templates.created': 'Template saved',
+    'templates.deleted': 'Template deleted',
     'stats.subtitle': 'Track your progress and achievements',
     'stats.noData': 'No data yet',
     'stats.noDataDesc': 'Start by adding tasks and goals to see your stats',
@@ -1305,6 +1422,9 @@ export const translations: Record<Language, Translations> = {
     'today.markMIT': 'Mark as top task',
     'today.unmarkMIT': 'Unmark',
     'today.startFocus': 'Start Focus',
+    'today.suggestion': 'Best task right now',
+    'today.suggestionDesc': 'Based on priority and due date',
+    'today.start': 'Start',
     'today.dailyReview': 'Daily Review',
     'today.quickAdd': 'Quick Add',
     'today.noTimeTasks': 'No timed tasks',

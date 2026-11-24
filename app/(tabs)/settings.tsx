@@ -18,6 +18,8 @@ import {
   Check,
   Type,
   DownloadCloud,
+  Layers,
+  Timer,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -268,6 +270,20 @@ export default function SettingsScreen() {
             title={t('settings.search')}
             description={t('settings.searchDesc')}
             onPress={() => router.push('/search')}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <NavRow
+            icon={<Layers size={20} color={theme.success} />}
+            title={t('templates.title')}
+            description={t('templates.subtitle')}
+            onPress={() => router.push('/templates')}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <NavRow
+            icon={<Timer size={20} color={theme.secondary[500]} />}
+            title={t('focus.viewHistory')}
+            description={t('focus.subtitle')}
+            onPress={() => router.push('/focus-history')}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
