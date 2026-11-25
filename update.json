@@ -1,9 +1,9 @@
 {
-  "version": "1.4.1",
-  "versionCode": 7,
-  "notes": "• إيقاف الإشعارات المجدولة فعليًا عند تعطيل أي نوع من التذكيرات\n• تسريع فتح التطبيق وتقليل عمليات التخزين عند إعادة جدولة التنبيهات\n• إصلاح تكرار المهام عند إكمالها من شاشة اليوم أو المراجعة اليومية\n• تحسين مساحة شريط التبويبات على الأجهزة ذات شريط التنقل السفلي\n• تحديث داخل التطبيق أكثر موثوقية بمصدر موثوق وبصمة ملف وتعامل صحيح مع فشل التثبيت\n• إصلاح النسخ الاحتياطي والاستيراد لمراجعات الأسبوع وقوالب المهام\n• إصلاح انتقال المهام الشهرية من ٣١ يناير إلى فبراير\n• مؤقت تركيز أدق وأقل استهلاكًا للبطارية في الخلفية",
-  "notesEn": "• Disabling a notification category now actually cancels its scheduled notifications\n• Faster startup with fewer storage operations when rebuilding reminders\n• Repeating tasks now create the next occurrence from Today or Daily Review\n• Better bottom-tab spacing on devices with a system navigation bar\n• More reliable in-app updates with authoritative manifest, checksum and correct install-failure handling\n• Backup/import fixes for weekly reviews and task templates\n• Monthly repeat dates no longer roll from Jan 31 to March\n• More accurate Pomodoro timing with less background battery use",
-  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.4.1/Orbit-release.apk",
-  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.4.1",
-  "sha256": "3089816e184793bc89ede4e210d058f856e53c64ad9a7771a2576fe2f4c09c29"
+  "version": "1.5.0",
+  "versionCode": 8,
+  "notes": "• تحليل المهام الأكثر تأثيرًا واقتراح انتصارات سريعة داخل شاشة المهام\n• فحص صحة البيانات مع إصلاح تلقائي آمن للروابط المكسورة ودورات التبعيات\n• ملخص أسبوعي جاهز للنسخ أو المشاركة من أرقام المراجعة\n• مصفوفة أولويات وكشف تعارض المواعيد مع ترتيب تلقائي للوقت\n• تسجيل سريع للعادات المستحقة من شاشة اليوم\n• إدخال ذكي للمهام وعمليات جماعية مع ترتيب بالسحب وملاحظات محفوظة\n• مؤقت تركيز بملء الشاشة وحجم خط محفوظ لا يتأثر بوضع الجوال البسيط\n• إحصائيات أعمق: سلاسل، مستويات، خرائط، أفضل أوقات التركيز وشارات تقدّم",
+  "notesEn": "• Impact analysis and quick-win suggestions on the Tasks screen\n• Data health audit with safe auto-repair for broken links and dependency cycles\n• Ready-made weekly summary you can copy or share\n• Eisenhower priority matrix and schedule conflict detection with auto-fix\n• Quick habit check-in for due habits on Today\n• Smart task parsing, bulk actions, drag ordering and saved filters\n• Fullscreen focus timer and persisted font scale that ignores Simple Mode\n• Deeper stats: streaks, levels, heatmaps, best focus hours and progress badges",
+  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.5.0/Orbit-release.apk",
+  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.5.0",
+  "sha256": "f0f12c2a3ff0092fbb7e7809329e85dfd6380ebfe9fc11a5721c5ac79249a3a8"
 }
