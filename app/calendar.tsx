@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius, iconSize, iconStroke, bottomSpace } from '@/src/theme';
+import { spacing, typography, radius, iconSize, iconStroke, bottomSpace, useResponsive } from '@/src/theme';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { Card } from '@/src/components/Card';
 import { FAB } from '@/src/components/FAB';
@@ -35,6 +35,7 @@ function toLocalISO(d: Date): string {
 
 export default function CalendarScreen() {
   const { theme } = useTheme();
+  const responsive = useResponsive();
   const { t, language, isRTL } = useI18n();
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -104,7 +105,12 @@ export default function CalendarScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.weekRow}>
+          <View
+            style={[
+              styles.weekRow,
+              responsive.isWide && { maxWidth: 7 * 72, alignSelf: 'center' as const },
+            ]}
+          >
             {(language === 'ar' ? WEEKDAYS : WEEKDAYS_EN).map((day) => (
               <Text key={day} style={[styles.weekday, { color: theme.text.tertiary, fontFamily: typography.fontFamilySemiBold }]}>
                 {day}
@@ -112,9 +118,21 @@ export default function CalendarScreen() {
             ))}
           </View>
 
-          <View style={styles.grid}>
+          <View
+            style={[
+              styles.grid,
+              responsive.isWide && { maxWidth: 7 * 72, alignSelf: 'center' as const },
+            ]}
+          >
             {cells.map((date, index) => {
-              if (!date) return <View key={`empty-${index}`} style={styles.cell} />;
+              if (!date) {
+                return (
+                  <View
+                    key={`empty-${index}`}
+                    style={[styles.cell, responsive.isWide && { maxWidth: 72 }]}
+                  />
+                );
+              }
               const key = toLocalISO(date);
               const dayTasks = tasksByDate[key] ?? [];
               const isSelected = selected === key;
@@ -125,6 +143,7 @@ export default function CalendarScreen() {
                   onPress={() => setSelected(key)}
                   style={[
                     styles.cell,
+                    responsive.isWide && { maxWidth: 72 },
                     isToday && { borderColor: theme.primary[500], borderWidth: 1.5 },
                     isSelected && { backgroundColor: theme.primary[500] + '22' },
                   ]}

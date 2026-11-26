@@ -4,6 +4,7 @@ import { Database, Download, Upload, Trash2, Activity, Wrench } from 'lucide-rea
 import { useRouter } from 'expo-router';
 import { Platform } from 'react-native';
 import { useTheme } from '@/src/context';
+import { useKeyboardInset } from '@/src/hooks/useKeyboardInset';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize } from '@/src/theme';
 import { Button, Card, ScreenHeader, SectionHeader } from '@/src/components';
@@ -70,6 +71,7 @@ const repositories: Record<BackupKey, { getAll: () => Promise<unknown[]>; replac
 };
 
 export default function DataScreen() {
+  const keyboardInset = useKeyboardInset();
   const { theme } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
@@ -247,7 +249,10 @@ export default function DataScreen() {
         onBack={() => router.back()}
       />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + keyboardInset }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Card style={styles.section}>
           <SectionHeader
             icon={<Download size={iconSize.lg} color={theme.primary[500]} />}

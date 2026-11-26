@@ -22,7 +22,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, radius, typography, iconSize, bottomSpace } from '@/src/theme';
+import { spacing, radius, typography, iconSize, bottomSpace, useResponsive } from '@/src/theme';
 import { ScreenHeader, EmptyState, Chip, StatCard, ProgressRing, TrendChart, Card, SectionHeader } from '@/src/components';
 import { HeatmapGrid } from '@/src/components/HeatmapGrid';
 import {
@@ -43,6 +43,7 @@ const PERIODS: Period[] = ['7', '30', 'all'];
 
 export default function StatsScreen() {
   const { theme } = useTheme();
+  const responsive = useResponsive();
   const { t, language, isRTL } = useI18n();
   const router = useRouter();
 
@@ -90,9 +91,11 @@ export default function StatsScreen() {
     (max, day) => Math.max(max, day.completed, day.created),
     1,
   );
-  // A 30-day bar chart cannot fit on a phone: each column needs ~19dp. Show
-  // the most recent 14 days so bars and labels stay inside the card.
-  const chartDays = stats.daily.length > 14 ? stats.daily.slice(-14) : stats.daily;
+  // Phones show the most recent 14 days (~19dp per column). Wide tablets have
+  // room for the full 30-day period without squeezing the labels.
+  const visibleChartDays = responsive.columns === 2 ? 30 : 14;
+  const chartDays =
+    stats.daily.length > visibleChartDays ? stats.daily.slice(-visibleChartDays) : stats.daily;
   const trendValues = useMemo(() => stats.daily.map((day) => day.completed), [stats.daily]);
   const bestDay = useMemo(
     () => stats.daily.reduce((best, day) => (day.completed > best.completed ? day : best), stats.daily[0]),
@@ -295,6 +298,7 @@ export default function StatsScreen() {
                 key={badge.id}
                 style={[
                   styles.badgeItem,
+                  responsive.columns === 2 && { width: '30%' },
                   {
                     backgroundColor: badge.earned ? theme.warning + '1A' : theme.surfaceSecondary,
                     opacity: badge.earned ? 1 : 0.58,

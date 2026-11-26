@@ -7,7 +7,7 @@ import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
 import { settingsRepository, subscribeToSettings } from '@/src/storage';
 import type { Settings } from '@/src/storage/entities';
-import { spacing, iconSize, iconStroke } from '@/src/theme';
+import { spacing, iconSize, iconStroke, useResponsive } from '@/src/theme';
 
 const TAB_DEFS = [
   { name: 'index', icon: Calendar, label: 'tab.today' },
@@ -30,10 +30,12 @@ type TabIconProps = {
 
 /** Stable component identity keeps icons mounted across layout re-renders. */
 function TabIcon({ Icon, focused, color, activeColor }: TabIconProps) {
+  const responsive = useResponsive();
   return (
     <View
       style={[
         styles.iconWrap,
+        responsive.isWide && styles.iconWrapWide,
         focused && {
           backgroundColor: activeColor + '1C',
           borderColor: activeColor + '33',
@@ -63,6 +65,7 @@ export default function TabLayout() {
   const { theme } = useTheme();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
+  const responsive = useResponsive();
   const [tabOrder, setTabOrder] = useState<string[]>(TAB_DEFS.map((tab) => tab.name));
 
   useEffect(() => {
@@ -106,7 +109,10 @@ export default function TabLayout() {
         backgroundColor: theme.tab.background,
         borderTopColor: theme.border,
         borderTopWidth: 1,
-        height: (Platform.OS === 'ios' ? 64 : 56) + Math.max(insets.bottom, 0),
+        height:
+          (Platform.OS === 'ios' ? 64 : 56) +
+          (responsive.isWide ? 8 : 0) +
+          Math.max(insets.bottom, 0),
         paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 8 : 4),
         paddingTop: 4,
         paddingHorizontal: spacing.xs,
@@ -115,7 +121,7 @@ export default function TabLayout() {
         marginBottom: 0,
       },
     }),
-    [theme, insets.bottom],
+    [theme, insets.bottom, responsive.isWide],
   );
 
   return (
@@ -154,5 +160,10 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconWrapWide: {
+    width: 60,
+    height: 36,
+    borderRadius: 18,
   },
 });

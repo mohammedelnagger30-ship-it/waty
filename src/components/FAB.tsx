@@ -13,7 +13,7 @@ import { useI18n } from '@/src/i18n';
 import { usePressAnimation } from '@/src/hooks/usePressAnimation';
 import { useReducedMotion } from '@/src/hooks/useReducedMotion';
 import { haptics } from '@/src/utils/haptics';
-import { spacing, radius, iconSize, iconStroke } from '@/src/theme';
+import { spacing, radius, iconSize, iconStroke, useResponsive } from '@/src/theme';
 
 interface FABProps {
   onPress: () => void;
@@ -29,6 +29,7 @@ const HALO_TIMING = { duration: 1900, easing: Easing.out(Easing.quad) };
 export function FAB({ onPress, icon, bottom = spacing.md, accessibilityLabel }: FABProps) {
   const { theme } = useTheme();
   const { t } = useI18n();
+  const responsive = useResponsive();
   const reduced = useReducedMotion();
   const pulse = useSharedValue(0);
   const { onPressIn, onPressOut, style: pressStyle } = usePressAnimation({
@@ -66,6 +67,8 @@ export function FAB({ onPress, icon, bottom = spacing.md, accessibilityLabel }: 
           // The tab screen's area already ends at the top of the tab bar, so
           // `bottom` is measured from there (no system inset needed here).
           bottom,
+          width: responsive.isWide ? 64 : 56,
+          height: responsive.isWide ? 64 : 56,
           borderColor: 'rgba(255,255,255,0.18)',
           shadowColor: theme.primary[500],
           shadowOffset: { width: 0, height: 6 },

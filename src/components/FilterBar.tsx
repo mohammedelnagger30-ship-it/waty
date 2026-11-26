@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, TextInput, Pressable, ScrollView, Modal } from 
 import { Search, SlidersHorizontal, ArrowDownUp, X } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, useResponsive } from '@/src/theme';
 import { Chip } from './Chip';
 import { Button } from './Button';
 import { TaskPriority, TaskStatus, TaskCategory, SavedFilter } from '@/src/storage/entities';
@@ -33,6 +33,7 @@ const defaultFilters: FilterOptions = {
 export function FilterBar({ filters, onFiltersChange, sort, onSortChange }: FilterBarProps) {
   const { theme } = useTheme();
   const { t } = useI18n();
+  const responsive = useResponsive();
   const [showSort, setShowSort] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [localFilters, setLocalFilters] = useState<FilterOptions>(filters);
@@ -217,7 +218,16 @@ export function FilterBar({ filters, onFiltersChange, sort, onSortChange }: Filt
       <Modal visible={showFilter} transparent animationType="slide" onRequestClose={() => setShowFilter(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowFilter(false)}>
           <Pressable
-            style={[styles.filterSheet, { backgroundColor: theme.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl }]}
+            style={[
+              styles.filterSheet,
+              {
+                backgroundColor: theme.surface,
+                borderTopLeftRadius: radius.xl,
+                borderTopRightRadius: radius.xl,
+                alignSelf: 'center' as const,
+                maxWidth: responsive.formWidth,
+              },
+            ]}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.filterHandle} />

@@ -19,7 +19,7 @@ import { I18nProvider } from '@/src/i18n/I18nProvider';
 import { UpdateProvider } from '@/src/updates';
 import { handleNotificationAction, initNotifications, rescheduleAllNotifications } from '@/src/notifications';
 import { ensureRecurringTasks } from '@/src/utils/recurringUtils';
-import { layout } from '@/src/theme';
+import { useResponsive } from '@/src/theme';
 
 const TASK_ACTIONS = ['complete', 'postpone_ten', 'postpone_hour', 'postpone_day'];
 
@@ -37,15 +37,21 @@ function ThemedGestureRoot({ children }: { children: ReactNode }) {
   );
 }
 
-/** Redmi Note 8-sized frame: 393x851dp; fills smaller screens unchanged. */
+/**
+ * Edge-to-edge on phones; a centered, readable column on tablets and desktop.
+ * The Redmi Note 8 (393dp) is still the reference, not a hard maximum.
+ */
 function AppFrame({ children }: { children: ReactNode }) {
   const { theme } = useTheme();
+  const responsive = useResponsive();
   return (
     <View
       style={[
         styles.frame,
-        Platform.OS === 'web' && styles.webFrame,
-        { backgroundColor: theme.background },
+        {
+          backgroundColor: theme.background,
+          maxWidth: responsive.contentWidth,
+        },
       ]}
     >
       {children}
@@ -61,11 +67,7 @@ const styles = StyleSheet.create({
   frame: {
     flex: 1,
     width: '100%',
-    maxWidth: layout.maxScreenWidth,
     alignSelf: 'center',
-  },
-  webFrame: {
-    maxHeight: layout.height,
   },
 });
 

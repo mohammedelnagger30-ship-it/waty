@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, ScrollView, Alert, Share, Platform } from 'reac
 import { CheckCircle2, Target, Flame, Save, CalendarRange, Sparkles, Copy } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/context';
+import { useKeyboardInset } from '@/src/hooks/useKeyboardInset';
 import { useI18n, type TranslationKey } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { Button, Card, Chip, Input, StatCard, ScreenHeader } from '@/src/components';
@@ -33,6 +34,7 @@ function getWeekStart(date: Date): Date {
 }
 
 export default function WeeklyReviewScreen() {
+  const keyboardInset = useKeyboardInset();
   const { theme } = useTheme();
   const { t, language } = useI18n();
   const router = useRouter();
@@ -191,7 +193,10 @@ export default function WeeklyReviewScreen() {
         onBack={() => router.back()}
       />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + keyboardInset }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={[styles.weekBadge, { backgroundColor: theme.primary[500] + '18' }]}>
           <CalendarRange size={18} color={theme.primary[500]} />
           <Text style={[styles.weekBadgeText, { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold }]}>

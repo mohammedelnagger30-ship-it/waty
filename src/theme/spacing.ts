@@ -34,12 +34,8 @@ export const iconStroke = {
   check: 3,
 } as const;
 
-/** Reference device: Redmi Note 8 = 1080x2340px @ 2.75x = 393x851dp. */
-export const layout = {
-  width: 393,
-  height: 851,
-  maxScreenWidth: 393,
-} as const;
+// The Redmi Note 8 (393x851dp) remains the visual reference, but layout
+// widths are now breakpoint-driven; see ./responsive.ts.
 
 /** Bottom clearance tokens that match the tab bar and floating actions. */
 export const bottomSpace = {

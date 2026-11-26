@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { useResponsive } from '@/src/theme';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 interface TrendChartProps {
@@ -10,8 +11,8 @@ interface TrendChartProps {
 
 /** Lightweight SVG area chart built on react-native-svg (already installed). */
 export function TrendChart({ values, color, height = 110 }: TrendChartProps) {
-  const { width } = useWindowDimensions();
-  const chartWidth = Math.max(80, width - 80);
+  const responsive = useResponsive();
+  const chartWidth = Math.max(80, responsive.contentWidth - 96);
 
   const { linePath, areaPath, last } = useMemo(() => {
     const max = values.reduce((value, point) => Math.max(value, point), 1);

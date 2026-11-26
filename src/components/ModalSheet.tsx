@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useReducedMotion } from '@/src/hooks/useReducedMotion';
 import { haptics } from '@/src/utils/haptics';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, useResponsive } from '@/src/theme';
 
 interface ModalSheetProps
   extends Omit<
@@ -76,6 +76,7 @@ function ModalSheetContent({ children, visible, onClose, title, onExited, ...mod
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
+  const responsive = useResponsive();
   const { height: screenHeight } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
 
@@ -105,8 +106,13 @@ function ModalSheetContent({ children, visible, onClose, title, onExited, ...mod
         ? height
         : withTiming(height, { duration: 220, easing: Easing.out(Easing.cubic) });
     };
+    // Samsung tablets can keep the activity unadjusted for the IME
+    // (mAdjustedForIme=false). React Native then emits keyboardDidShow with a
+    // zero height, which used to leave every sheet action under the keyboard.
+    const fallbackHeight = Math.min(560, Math.round(screenHeight * 0.44));
     const onShow = (event: { endCoordinates: { height: number } }) => {
-      animate(Math.max(0, event.endCoordinates.height));
+      const reported = event?.endCoordinates?.height ?? 0;
+      animate(reported > 40 ? reported : fallbackHeight);
     };
     const onHide = () => animate(0);
     const showSub = Keyboard.addListener('keyboardDidShow', onShow);
@@ -116,7 +122,7 @@ function ModalSheetContent({ children, visible, onClose, title, onExited, ...mod
       hideSub.remove();
       keyboardOffset.value = 0;
     };
-  }, [mounted, reduced, keyboardOffset]);
+  }, [mounted, reduced, keyboardOffset, screenHeight]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -214,6 +220,10 @@ function ModalSheetContent({ children, visible, onClose, title, onExited, ...mod
               shadowColor: theme.shadow.colorStrong,
               borderTopLeftRadius: radius.xl,
               borderTopRightRadius: radius.xl,
+              // On tablets, keep forms at a readable width instead of
+              // stretching every field across the whole screen.
+              alignSelf: 'center' as const,
+              maxWidth: responsive.formWidth,
               // Keep sheet content above the system navigation bar without
               // leaving a large blank band below short forms.
               paddingBottom: Math.max(spacing.md, insets.bottom),

@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, ScrollView, Pressable } from 'react-native';
 import { Search, CheckSquare, Target, ListChecks, Flame, NotebookPen } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/context';
+import { useKeyboardInset } from '@/src/hooks/useKeyboardInset';
 import { useI18n, type TranslationKey } from '@/src/i18n';
 import { spacing, typography, radius, iconSize } from '@/src/theme';
 import { Card, Chip, EmptyState, Input, ScreenHeader } from '@/src/components';
@@ -32,6 +33,7 @@ function matches(query: string, ...fields: Array<string | undefined>): boolean {
 }
 
 export default function SearchScreen() {
+  const keyboardInset = useKeyboardInset();
   const { theme } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
@@ -152,7 +154,10 @@ export default function SearchScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScreenHeader title={t('search.title')} onBack={() => router.back()} />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + keyboardInset }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Input
           value={query}
           onChangeText={setQuery}

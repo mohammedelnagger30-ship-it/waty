@@ -33,6 +33,7 @@ import { palettes, spacing, typography, radius, iconSize, type PaletteDefinition
 import type { PaletteId } from '@/src/storage/entities';
 import { haptics } from '@/src/utils/haptics';
 import { usePressAnimation } from '@/src/hooks/usePressAnimation';
+import { useKeyboardInset } from '@/src/hooks/useKeyboardInset';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { Card, Chip, Toggle, SectionHeader } from '@/src/components';
 import { settingsRepository } from '@/src/storage';
@@ -152,6 +153,7 @@ function NavRow({ icon, title, description, onPress }: NavRowProps) {
 }
 
 export default function SettingsScreen() {
+  const keyboardInset = useKeyboardInset();
   const { theme, mode, isDark, setMode, paletteId, setPalette } = useTheme();
   const {
     simpleModeEnabled,
@@ -211,7 +213,10 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScreenHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + keyboardInset }]}
+        showsVerticalScrollIndicator={false}
+      >
         <Card style={styles.section}>
           <SectionHeader
             icon={<Globe size={iconSize.lg} color={theme.primary[500]} />}
