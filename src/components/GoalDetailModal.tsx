@@ -171,7 +171,7 @@ export function GoalDetailModal({
                 style={[styles.taskRow, { backgroundColor: theme.surfaceSecondary }]}
               >
                 <Clock size={15} color={theme.text.tertiary} />
-                <Text numberOfLines={1} style={[styles.taskTitle, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                <Text numberOfLines={2} style={[styles.taskTitle, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
                   {task.title}
                 </Text>
                 <Text style={[styles.taskStatus, { color: task.status === 'done' ? theme.success : theme.text.tertiary, fontFamily: typography.fontFamily }]}>
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: typography.sizes.sm,
-    lineHeight: typography.sizes.sm * 1.5,
+    lineHeight: typography.sizes.sm * 1.65,
     marginBottom: spacing.xs,
   },
   motivation: {
@@ -276,6 +276,7 @@ const styles = StyleSheet.create({
   taskTitle: {
     flex: 1,
     fontSize: typography.sizes.sm,
+    lineHeight: typography.sizes.sm * 1.65,
   },
   taskStatus: {
     fontSize: 10,

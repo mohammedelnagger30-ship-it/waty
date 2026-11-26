@@ -300,7 +300,7 @@ export default function PlannerScreen() {
         <View style={styles.taskContent}>
           <View style={styles.taskRow}>
             <Text
-              numberOfLines={1}
+              numberOfLines={3}
               style={[
                 styles.taskTitle,
                 {
@@ -706,6 +706,7 @@ const styles = StyleSheet.create({
   taskTitle: {
     flex: 1,
     fontSize: typography.sizes.sm,
+    lineHeight: typography.sizes.sm * 1.65,
   },
   taskTimeChip: {
     paddingVertical: 2,

@@ -354,7 +354,10 @@ export default function TasksScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          undoTasks.length > 0 || selectionMode ? styles.scrollContentWithBar : null,
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -389,7 +392,7 @@ export default function TasksScreen() {
                     {item.blockedCount}
                   </Text>
                 </View>
-                <Text numberOfLines={1} style={[styles.insightRowText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                <Text numberOfLines={2} style={[styles.insightRowText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
                   {item.task.title}
                 </Text>
                 <ChevronRight size={16} color={theme.text.tertiary} />
@@ -417,7 +420,7 @@ export default function TasksScreen() {
                   onPress={() => handleCardPress(task)}
                   style={({ pressed }) => [styles.insightRowMain, { opacity: pressed ? 0.7 : 1 }]}
                 >
-                  <Text numberOfLines={1} style={[styles.insightRowText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                  <Text numberOfLines={2} style={[styles.insightRowText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
                     {task.title}
                   </Text>
                   <Text style={[styles.quickTime, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
@@ -518,7 +521,7 @@ export default function TasksScreen() {
         )}
       </ScrollView>
 
-      {undoTasks.length > 0 ? (
+      {undoTasks.length > 0 && !selectionMode ? (
         <Pressable
           onPress={handleUndo}
           style={[
@@ -639,6 +642,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: bottomSpace.fab,
   },
+  scrollContentWithBar: {
+    // Undo/bulk bars sit above the tab bar and vary in height; keep the last
+    // row clear of whichever one is currently visible.
+    paddingBottom: bottomSpace.fab + spacing.xl,
+  },
   insightCard: {
     borderWidth: 1,
     borderRadius: radius.lg,
@@ -667,7 +675,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  insightRowText: { fontSize: typography.sizes.sm, flexShrink: 1 },
+  insightRowText: { fontSize: typography.sizes.sm, flexShrink: 1, lineHeight: typography.sizes.sm * 1.65 },
   impactBadge: {
     minWidth: 26,
     paddingVertical: 2,

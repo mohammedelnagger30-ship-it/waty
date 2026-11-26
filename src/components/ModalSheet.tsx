@@ -45,7 +45,6 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 const OPEN_TIMING = { duration: 260, easing: Easing.out(Easing.cubic) };
-const CLOSE_TIMING = { duration: 220, easing: Easing.in(Easing.cubic) };
 const SNAP_TIMING = { duration: 180, easing: Easing.out(Easing.cubic) };
 
 /**
@@ -139,16 +138,11 @@ function ModalSheetContent({ children, visible, onClose, title, onExited, ...mod
       return clearSafetyTimer;
     }
 
-    if (reduced) {
-      progress.value = 0;
-      finishClose();
-      return clearSafetyTimer;
-    }
-
-    progress.value = withTiming(0, CLOSE_TIMING, (finished?: boolean) => {
-      if (finished) runOnJS(finishClose)();
-    });
-    safetyTimer.current = setTimeout(finishClose, 400);
+    // Unmount immediately. Screens often close one sheet and open another in
+    // the same tick (e.g. quick add -> full form); keeping the old sheet
+    // mounted for an exit animation stacks two backdrops and blocks touches.
+    progress.value = 0;
+    finishClose();
     return clearSafetyTimer;
   }, [visible, mounted, reduced, progress, finishClose]);
 
@@ -267,6 +261,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     maxHeight: '90%',
+    overflow: 'hidden',
     paddingBottom: spacing.xxl,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
@@ -288,6 +283,11 @@ const styles = StyleSheet.create({
   },
   content: {
     width: '100%',
+    // The sheet has a max height, not a fixed one. Without allowing this
+    // wrapper to shrink, tall forms grow past the sheet and their save/cancel
+    // buttons end up below the viewport where they cannot be reached.
+    flexShrink: 1,
+    minHeight: 0,
   },
   title: {
     fontSize: typography.sizes.xl,

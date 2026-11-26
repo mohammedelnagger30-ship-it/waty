@@ -79,7 +79,7 @@ export function PriorityMatrix({ groups, onOpenTask, onComplete }: Props) {
                 </Pressable>
                 <Pressable onPress={() => onOpenTask(task)} style={styles.rowBody}>
                   <Text
-                    numberOfLines={2}
+                    numberOfLines={3}
                     style={[styles.rowTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}
                   >
                     {task.title}
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rowBody: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: typography.sizes.sm },
+  rowTitle: { fontSize: typography.sizes.sm, lineHeight: typography.sizes.sm * 1.65 },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   timeText: { fontSize: typography.sizes.xs },
 });

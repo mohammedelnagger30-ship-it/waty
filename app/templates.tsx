@@ -151,7 +151,7 @@ export default function TemplatesScreen() {
                   <View style={styles.cardTop}>
                     <View style={[styles.dot, { backgroundColor: categoryColors[template.category] }]} />
                     <View style={styles.cardText}>
-                      <Text style={[styles.cardTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]} numberOfLines={2}>
+                      <Text style={[styles.cardTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]} numberOfLines={3}>
                         {template.title}
                       </Text>
                       {template.description ? (
@@ -218,8 +218,8 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   dot: { width: 9, height: 9, borderRadius: 5, marginTop: 6 },
   cardText: { flex: 1, gap: 2 },
-  cardTitle: { fontSize: typography.sizes.md },
-  cardDesc: { fontSize: typography.sizes.sm },
+  cardTitle: { fontSize: typography.sizes.md, lineHeight: typography.sizes.md * 1.65 },
+  cardDesc: { fontSize: typography.sizes.sm, lineHeight: typography.sizes.sm * 1.65 },
   meta: { fontSize: typography.sizes.xs, marginTop: 2 },
   cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm, borderRadius: radius.md },
   routineCard: { gap: spacing.sm },

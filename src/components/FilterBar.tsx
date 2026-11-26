@@ -225,6 +225,7 @@ export function FilterBar({ filters, onFiltersChange, sort, onSortChange }: Filt
               {t('tasks.filter')}
             </Text>
 
+            <ScrollView style={styles.filterScroll} keyboardShouldPersistTaps="handled">
             {/* Category */}
             <Text style={[styles.filterLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
               {t('tasks.field.category')}
@@ -336,6 +337,7 @@ export function FilterBar({ filters, onFiltersChange, sort, onSortChange }: Filt
                 {t('common.confirm')}
               </Button>
             </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -418,9 +420,15 @@ const styles = StyleSheet.create({
   },
   filterSheet: {
     maxHeight: '80%',
+    overflow: 'hidden',
     paddingBottom: spacing.xxl,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+  },
+  filterScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    minHeight: 0,
   },
   filterHandle: {
     width: 40,

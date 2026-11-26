@@ -608,7 +608,7 @@ export default function StatsScreen() {
                   <CheckSquare size={14} color="#FFFFFF" />
                 </View>
                 <View style={styles.recentInfo}>
-                  <Text numberOfLines={1} style={[styles.recentTitle, { color: theme.text.primary, fontFamily: typography.fontFamily }]}>
+                  <Text numberOfLines={2} style={[styles.recentTitle, { color: theme.text.primary, fontFamily: typography.fontFamily }]}>
                     {task.title}
                   </Text>
                   <Text style={[styles.recentDate, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
@@ -795,6 +795,7 @@ const styles = StyleSheet.create({
   },
   recentTitle: {
     fontSize: typography.sizes.sm,
+    lineHeight: typography.sizes.sm * 1.65,
   },
   recentDate: {
     fontSize: typography.sizes.xs,

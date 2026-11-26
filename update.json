@@ -1,9 +1,9 @@
 {
-  "version": "1.6.0",
-  "versionCode": 9,
-  "notes": "• شاشة يوم أبسط وأسرع مع إجراءات سريعة وبطاقة خطة واحدة وقائمة مهام قابلة للطي\n• مهام متكررة في تبويب الخطط: أيام محددة أو كل N يوم، وتظهر تلقائياً في اليوم\n• إيقاف السلسلة المتكررة بالكامل مع الحفاظ على المهام المكتملة في السجل\n• إصلاح جدولة الإشعارات وإعادة جدولتها عند الإنشاء والإيقاف والعودة للتطبيق\n• توحيد الرؤوس والأزرار والبطاقات والألوان والتباعد عبر الشاشات\n• نسخة Release مستقلة تعمل بدون Metro مع الحفاظ على بياناتك الحالية",
-  "notesEn": "• Simpler, faster Today screen with quick actions, one plan card and collapsible completed tasks\n• Recurring plans in the Plans tab: specific weekdays or every N days, automatically added to Home\n• Stop an entire recurring series while keeping completed occurrences as history\n• Fixed notification scheduling and rescheduling on create, cancel and app foreground\n• Unified headers, buttons, cards, colors and spacing across screens\n• Standalone Release build that runs without Metro and preserves your existing data",
-  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.6.0/Orbit-release.apk",
-  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.6.0",
-  "sha256": "aa3b127678319e77ae9f83408257a15c7cf42595aeb29cd9612771c23c6ccae0"
+  "version": "1.6.1",
+  "versionCode": 10,
+  "notes": "• إصلاح قص النصوص العربية الطويلة في كل الشاشات مع ارتفاع سطر مناسب لخط Cairo\n• أزرار الحفظ والإلغاء والإضافة ظاهرة دائماً في النوافذ المنبثقة الطويلة\n• منع تراكم النوافذ والخلفيات الداكنة عند الانتقال بين الشاشات المنبثقة\n• لوحة الفلاتر قابلة للتمرير حتى مع كثرة الفلاتر أو ظهور لوحة المفاتيح\n• منع تداخل شريط التراجع مع شريط التحديد الجماعي وتأمين مساحة آخر مهمة\n• إيقاف فحص التحديث خارج أندرويد حتى لا تظهر نافذة تحديث أثناء المعاينة",
+  "notesEn": "• Fixed clipped long Arabic text across all screens with Cairo-safe line height\n• Save/cancel/add actions stay reachable in tall bottom sheets\n• Prevented stacked sheets and dimmed backdrops when switching between modals\n• Filter sheet scrolls even with many filters or the keyboard open\n• Prevented undo and bulk-action bars from overlapping and covering the last row\n• Disabled update checks outside Android so browser previews are not covered",
+  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.6.1/Orbit-release.apk",
+  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.6.1",
+  "sha256": "a31c7be39c4f0acd7f3a075b55487aa26ad1675b292b161b0e4850989c1f6149"
 }

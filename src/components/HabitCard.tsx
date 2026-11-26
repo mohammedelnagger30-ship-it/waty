@@ -38,7 +38,7 @@ export function HabitCard({ habit, onToggleToday, onEdit, onDelete }: HabitCardP
           <Flame size={20} color={color} />
         </View>
         <View style={styles.info}>
-          <Text numberOfLines={2} style={[styles.title, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+          <Text numberOfLines={3} style={[styles.title, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
             {habit.title}
           </Text>
           <View style={styles.metaRow}>
@@ -129,6 +129,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.sizes.md,
+    lineHeight: typography.sizes.md * 1.65,
   },
   metaRow: {
     flexDirection: 'row',

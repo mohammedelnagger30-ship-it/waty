@@ -171,7 +171,7 @@ export default function CalendarScreen() {
                 >
                   <Text
                     style={[styles.taskTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}
-                    numberOfLines={1}
+                    numberOfLines={2}
                   >
                     {task.title}
                   </Text>
@@ -231,6 +231,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     marginBottom: spacing.xs,
   },
-  taskTitle: { fontSize: typography.sizes.sm, flex: 1 },
+  taskTitle: { fontSize: typography.sizes.sm, flex: 1, lineHeight: typography.sizes.sm * 1.65 },
   taskTime: { fontSize: typography.sizes.xs, marginStart: spacing.sm },
 });

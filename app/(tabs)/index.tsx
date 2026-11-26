@@ -313,7 +313,7 @@ export default function TodayScreen() {
         <View style={styles.taskContent}>
           <View style={styles.taskTopRow}>
             <Text
-              numberOfLines={1}
+              numberOfLines={3}
               style={[
                 styles.taskTitle,
                 { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold, textDecorationLine: isDone ? 'line-through' : 'none' },
@@ -544,7 +544,7 @@ export default function TodayScreen() {
                       {done ? <Check size={iconSize.xs} color={theme.text.inverse} strokeWidth={3} /> : null}
                     </View>
                     <Text
-                      numberOfLines={1}
+                      numberOfLines={2}
                       style={[
                         styles.habitChipText,
                         { color: done ? color : theme.text.secondary, fontFamily: typography.fontFamilySemiBold },
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: typography.sizes.xl,
-    lineHeight: typography.sizes.xl * typography.lineHeights.tight,
+    lineHeight: typography.sizes.xl * typography.lineHeights.normal,
   },
   dateText: {
     fontSize: typography.sizes.md,
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
   },
   heroStatValue: {
     fontSize: typography.sizes.lg,
-    lineHeight: typography.sizes.lg * typography.lineHeights.tight,
+    lineHeight: typography.sizes.lg * typography.lineHeights.normal,
   },
   heroStatLabel: {
     fontSize: typography.sizes.xs,
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
   },
   quickBtnLabel: {
     fontSize: typography.sizes.xs,
-    lineHeight: typography.sizes.xs * typography.lineHeights.tight,
+    lineHeight: typography.sizes.xs * typography.lineHeights.normal,
     textAlign: 'center',
   },
   sectionSpacing: {
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  habitChipText: { fontSize: typography.sizes.xs, flexShrink: 1 },
+  habitChipText: { fontSize: typography.sizes.xs, flexShrink: 1, lineHeight: typography.sizes.xs * 1.65 },
   planCard: {
     marginBottom: spacing.md,
     gap: spacing.sm,
@@ -853,6 +853,9 @@ const styles = StyleSheet.create({
   taskTitle: {
     flex: 1,
     fontSize: typography.sizes.sm,
+    // Arabic Cairo glyphs need extra vertical room; without this, the second
+    // allowed line is visually clipped on dense 393dp screens.
+    lineHeight: typography.sizes.sm * 1.65,
   },
   taskMetaRow: {
     flexDirection: 'row',

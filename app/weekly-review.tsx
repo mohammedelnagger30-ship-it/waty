@@ -289,11 +289,11 @@ export default function WeeklyReviewScreen() {
             multiline
             numberOfLines={4}
           />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptRow}>
+          <View style={styles.promptRow}>
             {(['weekly.prompt.well1', 'weekly.prompt.well2'] as TranslationKey[]).map((key) => (
               <Chip key={key} onPress={() => appendPrompt(setWhatWentWell, key)}>{t(key)}</Chip>
             ))}
-          </ScrollView>
+          </View>
           <Input
             label={t('weekly.improve')}
             value={whatToImprove}
@@ -302,11 +302,11 @@ export default function WeeklyReviewScreen() {
             multiline
             numberOfLines={4}
           />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptRow}>
+          <View style={styles.promptRow}>
             {(['weekly.prompt.improve1', 'weekly.prompt.improve2'] as TranslationKey[]).map((key) => (
               <Chip key={key} onPress={() => appendPrompt(setWhatToImprove, key)}>{t(key)}</Chip>
             ))}
-          </ScrollView>
+          </View>
           <Input
             label={t('weekly.note')}
             value={note}
@@ -315,11 +315,11 @@ export default function WeeklyReviewScreen() {
             multiline
             numberOfLines={3}
           />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptRow}>
+          <View style={styles.promptRow}>
             {(['weekly.prompt.note1'] as TranslationKey[]).map((key) => (
               <Chip key={key} onPress={() => appendPrompt(setNote, key)}>{t(key)}</Chip>
             ))}
-          </ScrollView>
+          </View>
           <Button onPress={handleSave} loading={saving} icon={<Save size={18} color="#FFFFFF" />}>
             {t('weekly.save')}
           </Button>
@@ -346,7 +346,7 @@ export default function WeeklyReviewScreen() {
                     {`${review.tasksCompleted} · ${review.completionRate}%`}
                   </Text>
                   {review.whatWentWell ? (
-                    <Text numberOfLines={2} style={[styles.previousNote, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                    <Text numberOfLines={3} style={[styles.previousNote, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
                       {review.whatWentWell}
                     </Text>
                   ) : null}
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   summaryText: { fontSize: typography.sizes.sm, lineHeight: 21 },
-  promptRow: { flexDirection: 'row', marginTop: -spacing.xs },
+  promptRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: -spacing.xs },
   moodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   moodChip: { paddingVertical: 4, paddingHorizontal: spacing.sm, borderRadius: 20 },
   moodText: { fontSize: typography.sizes.xs },
@@ -410,5 +410,5 @@ const styles = StyleSheet.create({
   previousRow: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: 2 },
   previousDate: { fontSize: typography.sizes.sm },
   previousMeta: { fontSize: typography.sizes.xs },
-  previousNote: { fontSize: typography.sizes.xs },
+  previousNote: { fontSize: typography.sizes.xs, lineHeight: typography.sizes.xs * 1.65 },
 });

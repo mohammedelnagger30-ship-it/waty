@@ -26,7 +26,7 @@ export function PlanCard({ plan, goalTitle, onEdit, onDelete }: PlanCardProps) {
           <Layers size={18} color={theme.primary[500]} />
         </View>
         <View style={styles.titleArea}>
-          <Text numberOfLines={2} style={[styles.title, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+          <Text numberOfLines={3} style={[styles.title, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
             {plan.title}
           </Text>
           <Text style={[styles.meta, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>{typeLabel}</Text>
@@ -94,6 +94,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.sizes.md,
+    lineHeight: typography.sizes.md * 1.65,
   },
   meta: {
     fontSize: typography.sizes.xs,

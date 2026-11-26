@@ -41,7 +41,7 @@ export function GoalCard({ goal, tasks, onPress, onToggleStatus, onEdit, onDelet
           <View style={[styles.dot, { backgroundColor: color }]} />
           <View style={styles.titleArea}>
             <Text
-              numberOfLines={2}
+              numberOfLines={3}
               style={[styles.title, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}
             >
               {goal.title}
@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.sizes.lg,
+    lineHeight: typography.sizes.lg * 1.7,
   },
   meta: {
     fontSize: typography.sizes.xs,
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: typography.sizes.sm,
-    lineHeight: typography.sizes.sm * 1.5,
+    lineHeight: typography.sizes.sm * 1.65,
   },
   footerRow: {
     flexDirection: 'row',

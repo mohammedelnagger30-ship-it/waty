@@ -177,7 +177,7 @@ export default function FocusHistoryScreen() {
                           {isFocus ? <Timer size={17} color={color} /> : <Coffee size={17} color={color} />}
                         </View>
                         <View style={styles.rowText}>
-                          <Text style={[styles.rowTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]} numberOfLines={1}>
+                          <Text style={[styles.rowTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]} numberOfLines={3}>
                             {taskTitles.get(session.taskId) ?? (isFocus ? t('focus.focus') : t('focus.break'))}
                           </Text>
                           <Text style={[styles.rowMeta, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
   rowIcon: { width: 34, height: 34, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   rowText: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: typography.sizes.md },
+  rowTitle: { fontSize: typography.sizes.md, lineHeight: typography.sizes.md * 1.65 },
   rowMeta: { fontSize: typography.sizes.xs },
   rowDuration: { fontSize: typography.sizes.lg },
 });

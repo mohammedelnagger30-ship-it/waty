@@ -311,7 +311,7 @@ function TaskCardImpl({
 
               <View style={styles.titleArea}>
                 <Text
-                  numberOfLines={2}
+                  numberOfLines={3}
                   style={[
                     styles.title,
                     {
@@ -325,7 +325,7 @@ function TaskCardImpl({
                 </Text>
                 {task.description ? (
                   <Text
-                    numberOfLines={1}
+                    numberOfLines={2}
                     style={[styles.description, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}
                   >
                     {task.description}
@@ -514,10 +514,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.sizes.md,
-    lineHeight: typography.sizes.md * 1.35,
+    // Cairo's Arabic glyphs need more vertical room than Latin fonts; a tight
+    // line-height clips descenders when numberOfLines is applied.
+    lineHeight: typography.sizes.md * 1.65,
   },
   description: {
     fontSize: typography.sizes.sm,
+    lineHeight: typography.sizes.sm * 1.65,
   },
   metaRow: {
     flexDirection: 'row',

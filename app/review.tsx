@@ -196,7 +196,7 @@ export default function DailyReviewScreen() {
             </Pressable>
             <Pressable onPress={() => router.push(`/tasks/${task.id}`)} style={styles.taskTitleArea}>
               <Text
-                numberOfLines={2}
+                numberOfLines={3}
                 style={[
                   styles.taskTitle,
                   { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold, textDecorationLine: isDone ? 'line-through' : 'none' },
@@ -557,6 +557,7 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     fontSize: typography.sizes.sm,
+    lineHeight: typography.sizes.sm * 1.65,
   },
   taskItemMeta: {
     flexDirection: 'row',

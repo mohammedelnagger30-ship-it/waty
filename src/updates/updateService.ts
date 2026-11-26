@@ -101,6 +101,10 @@ async function loadManifest(signal: AbortSignal): Promise<UpdateManifest> {
 
 /** Fetches the published update manifest and returns it only when it is newer. */
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
+  // The in-app updater installs APKs; it has no meaning on web and otherwise
+  // covers the UI with an Android update dialog in browser previews.
+  if (Platform.OS !== 'android') return null;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
 

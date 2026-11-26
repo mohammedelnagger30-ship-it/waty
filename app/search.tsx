@@ -203,7 +203,7 @@ export default function SearchScreen() {
                     ]}
                   >
                     <View style={styles.resultText}>
-                      <Text numberOfLines={1} style={[styles.resultTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+                      <Text numberOfLines={2} style={[styles.resultTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
                         {item.title}
                       </Text>
                       {item.subtitle ? (
@@ -258,6 +258,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   resultText: { flex: 1, gap: 2 },
-  resultTitle: { fontSize: typography.sizes.sm },
-  resultSubtitle: { fontSize: typography.sizes.xs },
+  resultTitle: { fontSize: typography.sizes.sm, lineHeight: typography.sizes.sm * 1.65 },
+  resultSubtitle: { fontSize: typography.sizes.xs, lineHeight: typography.sizes.xs * 1.65 },
 });

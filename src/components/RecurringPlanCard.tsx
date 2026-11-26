@@ -26,7 +26,7 @@ export function RecurringPlanCard({ plan, onCancel }: RecurringPlanCardProps) {
         <View style={styles.copy}>
           <Text
             style={[styles.title, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}
-            numberOfLines={2}
+            numberOfLines={3}
           >
             {plan.title}
           </Text>
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   copy: { flex: 1, gap: 2 },
-  title: { fontSize: typography.sizes.md },
+  title: { fontSize: typography.sizes.md, lineHeight: typography.sizes.md * 1.65 },
   schedule: { fontSize: typography.sizes.xs, lineHeight: typography.sizes.xs * typography.lineHeights.normal },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   time: { fontSize: typography.sizes.xs },
