@@ -69,6 +69,7 @@ export function Toggle({ value, onValueChange, disabled = false }: ToggleProps) 
           styles.thumb,
           {
             backgroundColor: '#FFFFFF',
+            shadowColor: theme.shadow.color,
             borderColor: activeColor,
             borderWidth: value ? 1.5 : 0,
             pointerEvents: 'none',
@@ -92,7 +93,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,

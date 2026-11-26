@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import {
@@ -16,14 +17,57 @@ import { ThemeProvider, useTheme } from '@/src/context/ThemeProvider';
 import { FontScaleProvider } from '@/src/context/FontScaleProvider';
 import { I18nProvider } from '@/src/i18n/I18nProvider';
 import { UpdateProvider } from '@/src/updates';
-import { handleNotificationAction, initNotifications } from '@/src/notifications';
+import { handleNotificationAction, initNotifications, rescheduleAllNotifications } from '@/src/notifications';
+import { ensureRecurringTasks } from '@/src/utils/recurringUtils';
+import { layout } from '@/src/theme';
 
-const TASK_ACTIONS = ['complete', 'postpone_hour', 'postpone_day'];
+const TASK_ACTIONS = ['complete', 'postpone_ten', 'postpone_hour', 'postpone_day'];
 
 function AppStatusBar() {
   const { isDark } = useTheme();
   return <StatusBar style={isDark ? 'light' : 'dark'} />;
 }
+
+function ThemedGestureRoot({ children }: { children: ReactNode }) {
+  const { theme } = useTheme();
+  return (
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: theme.background }]}>
+      {children}
+    </GestureHandlerRootView>
+  );
+}
+
+/** Redmi Note 8-sized frame: 393x851dp; fills smaller screens unchanged. */
+function AppFrame({ children }: { children: ReactNode }) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={[
+        styles.frame,
+        Platform.OS === 'web' && styles.webFrame,
+        { backgroundColor: theme.background },
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    ...(Platform.OS === 'web' ? { justifyContent: 'center' as const } : {}),
+  },
+  frame: {
+    flex: 1,
+    width: '100%',
+    maxWidth: layout.maxScreenWidth,
+    alignSelf: 'center',
+  },
+  webFrame: {
+    maxHeight: layout.height,
+  },
+});
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -39,48 +83,77 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initNotifications().catch(() => {});
+    (async () => {
+      try {
+        await ensureRecurringTasks();
+      } catch {
+        // Recurring generation is retried on the next focus/foreground event.
+      }
+      await initNotifications().catch(() => {});
+    })();
+  }, []);
+
+  // Overdue/nudge notifications depend on today's data. Reconcile them every
+  // time the app returns to the foreground so cancelled tasks never leave
+  // stale alerts behind.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void ensureRecurringTasks()
+          .then(() => rescheduleAllNotifications())
+          .catch(() => {});
+      }
+    });
+    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { taskId?: string } | undefined;
+      const data = response.notification.request.content.data as
+        | { taskId?: string; type?: string }
+        | undefined;
       const actionId = response.actionIdentifier;
-      if (!data?.taskId) return;
+      if (!data) return;
       if (TASK_ACTIONS.includes(actionId)) {
-        handleNotificationAction(actionId, data.taskId).catch(() => {});
-      } else {
-        // Tapping the notification body opens the related task directly.
-        router.push(`/tasks/${data.taskId}`);
+        if (data.taskId) handleNotificationAction(actionId, data.taskId).catch(() => {});
+        return;
       }
+      if (data.type === 'overdue_check') {
+        router.push('/tasks');
+        return;
+      }
+      // Tapping the notification body opens the related task directly.
+      if (data.taskId) router.push(`/tasks/${data.taskId}`);
     });
     return () => subscription.remove();
   }, [router]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-      <ErrorBoundary>
-      <ThemeProvider>
-        <FontScaleProvider>
+    <ThemeProvider>
+      <FontScaleProvider>
         <I18nProvider initialLanguage="ar">
-          <UpdateProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: 'fade',
-                animationDuration: 220,
-              }}
-            >
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <AppStatusBar />
-          </UpdateProvider>
+          <ThemedGestureRoot>
+            <SafeAreaProvider>
+              <ErrorBoundary>
+                <UpdateProvider>
+                  <AppFrame>
+                    <Stack
+                      screenOptions={{
+                        headerShown: false,
+                        animation: 'fade',
+                        animationDuration: 160,
+                      }}
+                    >
+                      <Stack.Screen name="+not-found" />
+                    </Stack>
+                    <AppStatusBar />
+                  </AppFrame>
+                </UpdateProvider>
+              </ErrorBoundary>
+            </SafeAreaProvider>
+          </ThemedGestureRoot>
         </I18nProvider>
-        </FontScaleProvider>
-      </ThemeProvider>
-      </ErrorBoundary>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+      </FontScaleProvider>
+    </ThemeProvider>
   );
 }

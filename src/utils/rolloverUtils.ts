@@ -11,25 +11,32 @@ export async function runAutoRollover(): Promise<{ rolled: number; flagged: Task
 
   const all = await taskRepository.getAll();
   const today = todayISODate();
+  const next: Task[] = [];
   const flagged: Task[] = [];
 
+  // One write for the whole rollover instead of one full-array write per task.
   for (const task of all) {
-    if (task.status === 'done' || task.status === 'cancelled') continue;
-    if (task.date >= today) continue;
+    if (task.status === 'done' || task.status === 'cancelled' || task.date >= today) {
+      next.push(task);
+      continue;
+    }
 
     const newCount = (task.rolloverCount ?? 0) + 1;
-    await taskRepository.update(task.id, {
+    const moved: Task = {
+      ...task,
       date: today,
       originalDate: task.originalDate ?? task.date,
       rolloverCount: newCount,
-    });
-
-    if (newCount >= ROLLOVER_THRESHOLD) {
-      flagged.push({ ...task, rolloverCount: newCount, date: today });
-    }
+    };
+    next.push(moved);
+    if (newCount >= ROLLOVER_THRESHOLD) flagged.push(moved);
   }
 
-  return { rolled: flagged.length === 0 ? countRolled(all, today) : countRolled(all, today), flagged };
+  if (next.some((task, index) => task !== all[index])) {
+    await taskRepository.replaceAll(next);
+  }
+
+  return { rolled: countRolled(next, today), flagged };
 }
 
 function countRolled(all: Task[], today: string): number {

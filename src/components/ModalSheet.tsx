@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, ReactNode } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -37,6 +37,10 @@ interface ModalSheetProps
   title?: string;
 }
 
+interface ModalSheetContentProps extends ModalSheetProps {
+  onExited?: () => void;
+}
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
 
@@ -45,10 +49,31 @@ const CLOSE_TIMING = { duration: 220, easing: Easing.in(Easing.cubic) };
 const SNAP_TIMING = { duration: 180, easing: Easing.out(Easing.cubic) };
 
 /**
+ * Keeps the sheet (and all its gestures/worklets) completely unmounted while
+ * closed. The inner sheet still runs its exit animation before unmounting.
+ */
+export function ModalSheet(props: ModalSheetProps) {
+  const [render, setRender] = useState(props.visible);
+  const visibleRef = useRef(props.visible);
+  visibleRef.current = props.visible;
+
+  useEffect(() => {
+    if (props.visible) setRender(true);
+  }, [props.visible]);
+
+  const handleExited = useCallback(() => {
+    if (!visibleRef.current) setRender(false);
+  }, []);
+
+  if (!render) return null;
+  return <ModalSheetContent {...props} onExited={handleExited} />;
+}
+
+/**
  * Bottom sheet with a choreographed enter/exit, drag-to-dismiss handle and
  * reduced-motion support. Stays mounted until the exit animation finishes.
  */
-export function ModalSheet({ children, visible, onClose, title, ...modalProps }: ModalSheetProps) {
+function ModalSheetContent({ children, visible, onClose, title, onExited, ...modalProps }: ModalSheetContentProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
@@ -63,6 +88,12 @@ export function ModalSheet({ children, visible, onClose, title, ...modalProps }:
   const keyboardOffset = useSharedValue(0);
   const sheetHeight = useSharedValue(0);
   const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onExitedRef = useRef(onExited);
+  onExitedRef.current = onExited;
+  const finishClose = useCallback(() => {
+    setMounted(false);
+    onExitedRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (visible) setMounted(true);
@@ -110,16 +141,16 @@ export function ModalSheet({ children, visible, onClose, title, ...modalProps }:
 
     if (reduced) {
       progress.value = 0;
-      setMounted(false);
+      finishClose();
       return clearSafetyTimer;
     }
 
     progress.value = withTiming(0, CLOSE_TIMING, (finished?: boolean) => {
-      if (finished) runOnJS(setMounted)(false);
+      if (finished) runOnJS(finishClose)();
     });
-    safetyTimer.current = setTimeout(() => setMounted(false), 400);
+    safetyTimer.current = setTimeout(finishClose, 400);
     return clearSafetyTimer;
-  }, [visible, mounted, reduced, progress]);
+  }, [visible, mounted, reduced, progress, finishClose]);
 
   const dismiss = Gesture.Pan()
     .onStart(() => {
@@ -186,6 +217,7 @@ export function ModalSheet({ children, visible, onClose, title, ...modalProps }:
             styles.sheet,
             {
               backgroundColor: theme.surface,
+              shadowColor: theme.shadow.colorStrong,
               borderTopLeftRadius: radius.xl,
               borderTopRightRadius: radius.xl,
               // Keep sheet content above the system navigation bar without
@@ -238,7 +270,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

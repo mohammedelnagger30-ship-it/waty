@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { InteractionManager } from 'react-native';
 import { UpdateDialog, UpdateNotice } from '@/src/components/UpdateDialog';
 import { useI18n } from '@/src/i18n';
 import { checkForUpdate, type UpdateInfo } from './updateService';
@@ -72,12 +73,14 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mountedRef.current = true;
-    const timer = setTimeout(() => {
+    // Run the daily update check after the first navigation/interactions settle
+    // so it never competes with opening the app or switching tabs.
+    const handle = InteractionManager.runAfterInteractions(() => {
       void check(false);
-    }, 1500);
+    });
     return () => {
       mountedRef.current = false;
-      clearTimeout(timer);
+      handle.cancel();
     };
   }, [check]);
 

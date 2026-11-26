@@ -11,7 +11,6 @@ import {
   Platform,
 } from 'react-native';
 import {
-  ArrowLeft,
   CheckCircle2,
   Calendar,
   CalendarPlus,
@@ -24,24 +23,28 @@ import {
   BookOpen,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { BackArrow } from '@/src/components/BackArrow';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
 import { taskRepository, reviewRepository } from '@/src/storage';
 import { Task, TaskStatus, DailyReview, ReviewMood } from '@/src/storage/entities';
 import { todayISODate, generateId, nowISO } from '@/src/storage/repository';
 import { priorityColors, categoryColors, completeRepeatingTask } from '@/src/utils/taskUtils';
 import { moveTaskToTomorrow } from '@/src/utils/rolloverUtils';
 import { cancelTaskReminders, rescheduleTaskReminders, scheduleTaskReminders } from '@/src/notifications';
-import { Card, Button, EmptyState } from '@/src/components';
+import { Card, Button, EmptyState, LoadingState, ScreenHeader } from '@/src/components';
 
-const MOODS: { key: ReviewMood; icon: typeof Smile; color: string; arLabel: string; enLabel: string }[] = [
-  { key: 'great', icon: Sparkles, color: '#22C55E', arLabel: 'ممتاز', enLabel: 'Great' },
-  { key: 'good', icon: Smile, color: '#1A9FE8', arLabel: 'جيد', enLabel: 'Good' },
-  { key: 'okay', icon: Meh, color: '#F59E0B', arLabel: 'عادي', enLabel: 'Okay' },
-  { key: 'bad', icon: Frown, color: '#EF4444', arLabel: 'سيء', enLabel: 'Bad' },
+const MOODS: {
+  key: ReviewMood;
+  icon: typeof Smile;
+  tone: 'success' | 'info' | 'warning' | 'error';
+  arLabel: string;
+  enLabel: string;
+}[] = [
+  { key: 'great', icon: Sparkles, tone: 'success', arLabel: 'ممتاز', enLabel: 'Great' },
+  { key: 'good', icon: Smile, tone: 'info', arLabel: 'جيد', enLabel: 'Good' },
+  { key: 'okay', icon: Meh, tone: 'warning', arLabel: 'عادي', enLabel: 'Okay' },
+  { key: 'bad', icon: Frown, tone: 'error', arLabel: 'سيء', enLabel: 'Bad' },
 ];
 
 export default function DailyReviewScreen() {
@@ -255,11 +258,7 @@ export default function DailyReviewScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.loadingContainer}>
-          <Text style={{ color: theme.text.tertiary, fontFamily: typography.fontFamily }}>
-            {t('common.loading')}
-          </Text>
-        </View>
+        <LoadingState label={t('common.loading')} />
       </View>
     );
   }
@@ -268,22 +267,11 @@ export default function DailyReviewScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <BackArrow size={24} color={theme.text.primary} />
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('review.title')}
-            </Text>
-            <Text style={[styles.headerSubtitle, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-              {t('review.subtitle')}
-            </Text>
-          </View>
-          <View style={{ width: 24 }} />
-        </View>
-      </SafeAreaView>
+      <ScreenHeader
+        title={t('review.title')}
+        subtitle={t('review.subtitle')}
+        onBack={() => router.back()}
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -297,7 +285,7 @@ export default function DailyReviewScreen() {
         >
           {!hasTasks ? (
             <EmptyState
-              icon={<BookOpen size={36} color={theme.text.tertiary} />}
+              icon={<BookOpen size={iconSize.hero} color={theme.text.tertiary} />}
               title={t('review.noTasksToday')}
               description={t('review.noTasksTodayDesc')}
             />
@@ -400,22 +388,27 @@ export default function DailyReviewScreen() {
                 <View style={styles.moodRow}>
                   {MOODS.map((m) => {
                     const Icon = m.icon;
+                    const moodColor = theme[m.tone];
+                    const label = language === 'ar' ? m.arLabel : m.enLabel;
                     const selected = mood === m.key;
                     return (
                       <Pressable
                         key={m.key}
                         onPress={() => setMood(m.key)}
+                        accessibilityRole="button"
+                        accessibilityLabel={label}
+                        accessibilityState={{ selected }}
                         style={[
                           styles.moodBtn,
                           {
-                            backgroundColor: selected ? m.color + '22' : theme.surfaceSecondary,
-                            borderColor: selected ? m.color : 'transparent',
+                            backgroundColor: selected ? moodColor + '22' : theme.surfaceSecondary,
+                            borderColor: selected ? moodColor : 'transparent',
                           },
                         ]}
                       >
-                        <Icon size={24} color={m.color} />
-                        <Text style={[styles.moodLabel, { color: selected ? m.color : theme.text.tertiary, fontFamily: typography.fontFamilySemiBold }]}>
-                          {language === 'ar' ? m.arLabel : m.enLabel}
+                        <Icon size={iconSize.xxl} color={moodColor} />
+                        <Text style={[styles.moodLabel, { color: selected ? moodColor : theme.text.tertiary, fontFamily: typography.fontFamilySemiBold }]}>
+                          {label}
                         </Text>
                       </Pressable>
                     );
@@ -514,7 +507,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: bottomSpace.sheet,
   },
   groupLabel: {
     fontSize: typography.sizes.md,
@@ -577,7 +570,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   taskMetaText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   taskCatChip: {
     flexDirection: 'row',
@@ -598,7 +591,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   rolloverText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   taskActions: {
     marginTop: spacing.xs,
@@ -618,7 +611,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   actionBtnText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   reflectionHeader: {
     flexDirection: 'row',
@@ -650,7 +643,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   moodLabel: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   reflectionInput: {
     borderWidth: 1.5,

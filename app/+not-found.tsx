@@ -1,39 +1,42 @@
 import { Stack, useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
-import { Button } from '@/src/components';
+import { spacing, typography, radius, iconSize } from '@/src/theme';
+import { Button, ScreenHeader } from '@/src/components';
 
 export default function NotFoundScreen() {
   const { theme } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
+  const goHome = () => router.replace('/');
 
   return (
     <>
       <Stack.Screen options={{ title: t('notfound.title') }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <ScreenHeader title={t('notfound.title')} onBack={goHome} />
         <View style={styles.content}>
           <View style={[styles.iconWrap, { backgroundColor: theme.primary[500] + '18' }]}>
-            <Search size={44} color={theme.primary[500]} />
+            <Search size={iconSize.hero} color={theme.primary[500]} />
           </View>
-          <Text style={[styles.code, { color: theme.primary[500], fontFamily: typography.fontFamilyBold }]}>
-            404
-          </Text>
+          <View style={[styles.code, { backgroundColor: theme.primary[500] + '1C' }]}>
+            <Text style={[styles.codeText, { color: theme.primary[500], fontFamily: typography.fontFamilyBold }]}>
+              404
+            </Text>
+          </View>
           <Text style={[styles.title, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
             {t('notfound.title')}
           </Text>
           <Text style={[styles.message, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
             {t('notfound.msg')}
           </Text>
-          <Button onPress={() => router.replace('/')} style={styles.button}>
+          <Button onPress={goHome} style={styles.button}>
             {t('notfound.back')}
           </Button>
         </View>
-      </SafeAreaView>
+      </View>
     </>
   );
 }
@@ -58,7 +61,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   code: {
-    fontSize: typography.sizes.xxxl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  codeText: {
+    fontSize: typography.sizes.lg,
   },
   title: {
     fontSize: typography.sizes.xl,

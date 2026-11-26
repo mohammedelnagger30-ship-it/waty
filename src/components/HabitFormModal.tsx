@@ -11,6 +11,7 @@ import { Button } from './Button';
 import { Chip } from './Chip';
 import { Input } from './Input';
 import { ModalSheet } from './ModalSheet';
+import { TimePickerField } from './TimePickerField';
 
 const COLORS = ['#1A9FE8', '#8B5CF6', '#22C55E', '#F59E0B', '#EC4899', '#14B8A6', '#6366F1', '#DC2626'];
 const FREQUENCIES: HabitFrequency[] = ['daily', 'weekly', 'custom'];
@@ -114,7 +115,7 @@ export function HabitFormModal({ visible, onClose, onSave, onDelete, editingHabi
           </View>
         ) : null}
 
-        <Input label={t('plans.reminderTime')} value={reminderTime} onChangeText={setReminderTime} placeholder="HH:mm" />
+        <TimePickerField label={t('plans.reminderTime')} value={reminderTime} onChange={setReminderTime} compact />
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>

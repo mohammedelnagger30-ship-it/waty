@@ -14,7 +14,7 @@ export function TrendChart({ values, color, height = 110 }: TrendChartProps) {
   const chartWidth = Math.max(80, width - 80);
 
   const { linePath, areaPath, last } = useMemo(() => {
-    const max = Math.max(1, ...values);
+    const max = values.reduce((value, point) => Math.max(value, point), 1);
     const points = values.map((value, index) => ({
       x: values.length <= 1 ? chartWidth / 2 : (index / (values.length - 1)) * chartWidth,
       y: height - 10 - (Math.max(0, value) / max) * (height - 24),

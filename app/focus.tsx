@@ -2,11 +2,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { View, StyleSheet, Text, Pressable, ScrollView } from 'react-native';
 import { Target, ListFilter } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
-import { BackArrow } from '@/src/components/BackArrow';
+import { spacing, typography, radius, bottomSpace } from '@/src/theme';
+import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { PomodoroTimer } from '@/src/components/PomodoroTimer';
 import { FocusTaskPickerModal } from '@/src/components/FocusTaskPickerModal';
 import { taskRepository } from '@/src/storage';
@@ -16,6 +16,7 @@ import { Task } from '@/src/storage/entities';
 export default function FocusScreen() {
   const { theme } = useTheme();
   const { t } = useI18n();
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selected, setSelected] = useState<Task | null>(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -51,13 +52,8 @@ export default function FocusScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <View style={styles.header}>
-        <BackArrow color={theme.text.primary} />
-        <Text style={[styles.title, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-          {t('pomodoro.title')}
-        </Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <ScreenHeader title={t('pomodoro.title')} onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Pressable
@@ -97,7 +93,7 @@ export default function FocusScreen() {
         onSelect={setSelected}
         title={t('focusScreen.chooseTask')}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -112,7 +108,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   title: { fontSize: typography.sizes.lg, flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: 80 },
+  content: { padding: spacing.lg, paddingBottom: bottomSpace.normal },
   taskPicker: {
     flexDirection: 'row',
     alignItems: 'center',

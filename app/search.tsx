@@ -1,13 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, Pressable } from 'react-native';
-import { ArrowLeft, Search, CheckSquare, Target, ListChecks, Flame, NotebookPen } from 'lucide-react-native';
+import { Search, CheckSquare, Target, ListChecks, Flame, NotebookPen } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { BackArrow } from '@/src/components/BackArrow';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
-import { Card, Chip, EmptyState, Input } from '@/src/components';
+import { spacing, typography, radius, iconSize } from '@/src/theme';
+import { Card, Chip, EmptyState, Input, ScreenHeader } from '@/src/components';
 import {
   taskRepository,
   goalRepository,
@@ -152,17 +150,7 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <BackArrow size={24} color={theme.text.primary} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-            {t('search.title')}
-          </Text>
-          <View style={{ width: 24 }} />
-        </View>
-      </SafeAreaView>
+      <ScreenHeader title={t('search.title')} onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Input
@@ -185,9 +173,9 @@ export default function SearchScreen() {
         </View>
 
         {!query.trim() ? (
-          <EmptyState icon={<Search size={36} color={theme.text.tertiary} />} title={t('search.subtitle')} />
+          <EmptyState icon={<Search size={iconSize.hero} color={theme.text.tertiary} />} title={t('search.subtitle')} />
         ) : visible.length === 0 ? (
-          <EmptyState icon={<Search size={36} color={theme.text.tertiary} />} title={t('search.noResults')} />
+          <EmptyState icon={<Search size={iconSize.hero} color={theme.text.tertiary} />} title={t('search.noResults')} />
         ) : (
           groupKeys.map((group) => (
             <View key={group} style={styles.groupSection}>

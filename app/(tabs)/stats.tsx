@@ -22,8 +22,8 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, radius, typography } from '@/src/theme';
-import { ScreenHeader, EmptyState, Chip, StatCard, ProgressRing, TrendChart } from '@/src/components';
+import { spacing, radius, typography, iconSize, bottomSpace } from '@/src/theme';
+import { ScreenHeader, EmptyState, Chip, StatCard, ProgressRing, TrendChart, Card, SectionHeader } from '@/src/components';
 import { HeatmapGrid } from '@/src/components/HeatmapGrid';
 import {
   goalRepository,
@@ -86,7 +86,10 @@ export default function StatsScreen() {
     [tasks, goals, habits, reviews, pomodoros, language, period],
   );
 
-  const maxDay = Math.max(1, ...stats.daily.map((day) => Math.max(day.completed, day.created)));
+  const maxDay = stats.daily.reduce(
+    (max, day) => Math.max(max, day.completed, day.created),
+    1,
+  );
   // A 30-day bar chart cannot fit on a phone: each column needs ~19dp. Show
   // the most recent 14 days so bars and labels stay inside the card.
   const chartDays = stats.daily.length > 14 ? stats.daily.slice(-14) : stats.daily;
@@ -164,21 +167,25 @@ export default function StatsScreen() {
     setRefreshing(false);
   };
 
+  const header = (
+    <ScreenHeader
+      title={t('stats.title')}
+      subtitle={t('stats.subtitle')}
+      right={(
+        <Pressable onPress={() => router.push('/focus-history')} hitSlop={10} style={{ padding: 8 }}>
+          <History size={iconSize.xl} color={theme.primary[500]} />
+        </Pressable>
+      )}
+    />
+  );
+
   if (!hasData) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <ScreenHeader
-          title={t('stats.title')}
-          subtitle={t('stats.subtitle')}
-          right={(
-            <Pressable onPress={() => router.push('/focus-history')} hitSlop={10} style={{ padding: 8 }}>
-              <History size={22} color={theme.primary[500]} />
-            </Pressable>
-          )}
-        />
+        {header}
         <View style={styles.empty}>
           <EmptyState
-            icon={<BarChart3 size={36} color={theme.text.tertiary} />}
+            icon={<BarChart3 size={iconSize.hero} color={theme.text.tertiary} />}
             title={t('stats.noData')}
             description={t('stats.noDataDesc')}
           />
@@ -189,15 +196,7 @@ export default function StatsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScreenHeader
-          title={t('stats.title')}
-          subtitle={t('stats.subtitle')}
-          right={(
-            <Pressable onPress={() => router.push('/focus-history')} hitSlop={10} style={{ padding: 8 }}>
-              <History size={22} color={theme.primary[500]} />
-            </Pressable>
-          )}
-        />
+      {header}
 
       <ScrollView
         style={styles.content}
@@ -212,7 +211,7 @@ export default function StatsScreen() {
           ))}
         </View>
 
-        <View style={[styles.overviewCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Card padded={false} style={styles.overviewCard}>
           <ProgressRing progress={stats.completionRate} size={112} label={t('stats.completionRate')} />
           <View style={styles.overviewInfo}>
             <Text style={[styles.overviewTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
@@ -228,16 +227,16 @@ export default function StatsScreen() {
               {t('stats.streak')}: {stats.streak}
             </Text>
           </View>
-        </View>
+        </Card>
 
         {/* Streak + level */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <Flame size={18} color={theme.warning} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('stats.momentum')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Flame size={iconSize.md} color={theme.warning} />}
+            title={t('stats.momentum')}
+            color={theme.warning}
+            style={styles.sectionSpacing}
+          />
           <View style={styles.momentumRow}>
             <View style={styles.momentumItem}>
               <Text style={[styles.momentumValue, { color: theme.warning, fontFamily: typography.fontFamilyBold }]}>
@@ -284,12 +283,12 @@ export default function StatsScreen() {
 
         {/* Badges */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <Award size={18} color={theme.warning} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('stats.badges')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Award size={iconSize.md} color={theme.warning} />}
+            title={t('stats.badges')}
+            color={theme.warning}
+            style={styles.sectionSpacing}
+          />
           <View style={styles.badgeRow}>
             {insightData.badges.map((badge) => (
               <View
@@ -330,12 +329,12 @@ export default function StatsScreen() {
 
         {/* Weekly goals */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <Target size={18} color={theme.success} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('stats.weeklyGoals')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Target size={iconSize.md} color={theme.success} />}
+            title={t('stats.weeklyGoals')}
+            color={theme.success}
+            style={styles.sectionSpacing}
+          />
           <View style={styles.goalRings}>
             <View style={styles.goalRingItem}>
               <ProgressRing
@@ -395,12 +394,11 @@ export default function StatsScreen() {
         </View>
 
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <TrendingUp size={18} color={theme.primary[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('stats.weeklyActivity')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<TrendingUp size={iconSize.md} color={theme.primary[500]} />}
+            title={t('stats.weeklyActivity')}
+            style={styles.sectionSpacing}
+          />
           <View style={styles.chart}>
             {chartDays.map((day) => (
               <View key={day.date} style={styles.chartColumn}>
@@ -447,12 +445,12 @@ export default function StatsScreen() {
         </View>
 
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <TrendingUp size={18} color={theme.success} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('stats.completionTrend')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<TrendingUp size={iconSize.md} color={theme.success} />}
+            title={t('stats.completionTrend')}
+            color={theme.success}
+            style={styles.sectionSpacing}
+          />
           <TrendChart values={trendValues} color={theme.success} />
           {bestDay ? (
             <Text style={[styles.trendHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
@@ -463,12 +461,12 @@ export default function StatsScreen() {
 
         {stats.categories.length > 0 ? (
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.sectionHeader}>
-              <CheckSquare size={18} color={theme.secondary[500]} />
-              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                {t('stats.categoryBreakdown')}
-              </Text>
-            </View>
+            <SectionHeader
+              icon={<CheckSquare size={iconSize.md} color={theme.secondary[500]} />}
+              title={t('stats.categoryBreakdown')}
+              color={theme.secondary[500]}
+              style={styles.sectionSpacing}
+            />
             {stats.categories.map((category) => (
               <View key={category.key} style={styles.categoryRow}>
                 <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
@@ -492,30 +490,29 @@ export default function StatsScreen() {
         ) : null}
 
         {/* Focus consistency map */}
-        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <Flame size={18} color={theme.primary[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('stats.focusMap')}
-            </Text>
-          </View>
+        <Card style={styles.section}>
+          <SectionHeader
+            icon={<Flame size={iconSize.md} color={theme.primary[500]} />}
+            title={t('stats.focusMap')}
+            style={styles.sectionSpacing}
+          />
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <HeatmapGrid cells={insightData.heatCells} baseColor={theme.primary[500]} />
           </ScrollView>
           <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
             {t('stats.focusMapHint')}
           </Text>
-        </View>
+        </Card>
 
         {/* Habit consistency map */}
         {habits.length > 0 ? (
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.sectionHeader}>
-              <CheckSquare size={18} color={theme.success} />
-              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                {t('stats.habitMap')}
-              </Text>
-            </View>
+            <SectionHeader
+              icon={<CheckSquare size={iconSize.md} color={theme.success} />}
+              title={t('stats.habitMap')}
+              color={theme.success}
+              style={styles.sectionSpacing}
+            />
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <HeatmapGrid cells={insightData.habitCells} baseColor={theme.success} />
             </ScrollView>
@@ -528,12 +525,12 @@ export default function StatsScreen() {
         {/* Estimate accuracy */}
         {insightData.averageEstimate > 0 ? (
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.sectionHeader}>
-              <Clock size={18} color={theme.secondary[500]} />
-              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                {t('stats.estimateAccuracy')}
-              </Text>
-            </View>
+            <SectionHeader
+              icon={<Clock size={iconSize.md} color={theme.secondary[500]} />}
+              title={t('stats.estimateAccuracy')}
+              color={theme.secondary[500]}
+              style={styles.sectionSpacing}
+            />
             <Text style={[styles.overviewText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
               {t('stats.avgEstimate')}: {insightData.averageEstimate} · {t('stats.avgActual')}: {insightData.averageActual}
             </Text>
@@ -548,12 +545,12 @@ export default function StatsScreen() {
         {/* Best focus hours */}
         {insightData.bestHours.length > 0 ? (
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.sectionHeader}>
-              <Timer size={18} color={theme.accent[500]} />
-              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                {t('stats.bestFocusTime')}
-              </Text>
-            </View>
+            <SectionHeader
+              icon={<Timer size={iconSize.md} color={theme.accent[500]} />}
+              title={t('stats.bestFocusTime')}
+              color={theme.accent[500]}
+              style={styles.sectionSpacing}
+            />
             <View style={styles.hourRow}>
               {insightData.bestHours.map(([hour, count]) => (
                 <View key={hour} style={[styles.hourChip, { backgroundColor: theme.primary[500] + '18' }]}>
@@ -571,12 +568,12 @@ export default function StatsScreen() {
 
         {stats.moods.length > 0 ? (
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.sectionHeader}>
-              <Smile size={18} color={theme.accent[500]} />
-              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                {t('stats.moodTrend')}
-              </Text>
-            </View>
+            <SectionHeader
+              icon={<Smile size={iconSize.md} color={theme.accent[500]} />}
+              title={t('stats.moodTrend')}
+              color={theme.accent[500]}
+              style={styles.sectionSpacing}
+            />
             <View style={styles.moodRow}>
               {stats.moods.map((mood) => (
                 <View key={mood.key} style={[styles.moodChip, { backgroundColor: `${mood.color}22` }]}>
@@ -592,21 +589,19 @@ export default function StatsScreen() {
             </View>
           </View>
         ) : (
-          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-              {t('stats.noReviews')}
-            </Text>
-          </View>
+          <Card style={styles.section}>
+            <EmptyState compact title={t('stats.noReviews')} />
+          </Card>
         )}
 
         {stats.recent.length > 0 ? (
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.sectionHeader}>
-              <Award size={18} color={theme.warning} />
-              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                {t('stats.recentActivity')}
-              </Text>
-            </View>
+            <SectionHeader
+              icon={<Award size={iconSize.md} color={theme.warning} />}
+              title={t('stats.recentActivity')}
+              color={theme.warning}
+              style={styles.sectionSpacing}
+            />
             {stats.recent.map((task) => (
               <View key={task.id} style={styles.recentRow}>
                 <View style={[styles.recentDot, { backgroundColor: theme.success }]}>
@@ -624,11 +619,9 @@ export default function StatsScreen() {
             ))}
           </View>
         ) : (
-          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.hint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-              {t('stats.noActivity')}
-            </Text>
-          </View>
+          <Card style={styles.section}>
+            <EmptyState compact title={t('stats.noActivity')} />
+          </Card>
         )}
       </ScrollView>
     </View>
@@ -648,7 +641,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl + 40,
+    paddingBottom: bottomSpace.tab,
   },
   filters: {
     flexDirection: 'row',
@@ -661,13 +654,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    shadowColor: '#00000010',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   overviewInfo: {
     flex: 1,
@@ -693,14 +679,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: spacing.sm,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  sectionSpacing: {
     marginBottom: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: typography.sizes.md,
   },
   chart: {
     flexDirection: 'row',
@@ -727,7 +707,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   chartLabel: {
-    fontSize: 11,
+    fontSize: typography.sizes.xs,
   },
   legend: {
     flexDirection: 'row',
@@ -773,7 +753,6 @@ const styles = StyleSheet.create({
   },
   categoryPercent: {
     width: 34,
-    textAlign: 'right',
     fontSize: typography.sizes.xs,
   },
   moodRow: {
@@ -790,7 +769,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   moodEmoji: {
-    fontSize: 16,
+    fontSize: typography.sizes.md,
   },
   moodLabel: {
     fontSize: typography.sizes.xs,
@@ -818,7 +797,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
   },
   recentDate: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   momentumRow: {
     flexDirection: 'row',

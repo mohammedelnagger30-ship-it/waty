@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, {
   Easing,
@@ -47,6 +47,30 @@ interface TaskCardProps {
   conflictCount?: number;
 }
 
+/** The only always-running animation on a card; mounted only for active tasks. */
+function ActivePulse({ color, reduced }: { color: string; reduced: boolean }) {
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduced) {
+      pulse.value = 0;
+      return;
+    }
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true,
+    );
+  }, [reduced, pulse]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.8 + pulse.value * 0.3 }],
+    opacity: 0.55 + pulse.value * 0.45,
+  }));
+
+  return <AnimatedView style={[styles.activeDot, { backgroundColor: color }, style]} />;
+}
+
 function TaskCardImpl({
   task,
   onPress,
@@ -91,51 +115,55 @@ function TaskCardImpl({
     [onComplete, onPostpone, onDelete, task, translateX],
   );
 
-  const pan = Gesture.Pan()
-    .enabled(!selectionMode)
-    .activeOffsetX([-15, 15])
-    // Let vertical scrolling win immediately; only near-horizontal drags reveal actions.
-    .failOffsetY([-12, 12])
-    .onUpdate((event) => {
-      const logical = event.translationX * dir;
-      const clamped = Math.max(-MAX_TRANSLATION, Math.min(MAX_TRANSLATION, logical));
-      translateX.value = clamped * dir;
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(!selectionMode)
+        .activeOffsetX([-15, 15])
+        // Let vertical scrolling win immediately; only near-horizontal drags reveal actions.
+        .failOffsetY([-12, 12])
+        .onUpdate((event) => {
+          const logical = event.translationX * dir;
+          const clamped = Math.max(-MAX_TRANSLATION, Math.min(MAX_TRANSLATION, logical));
+          translateX.value = clamped * dir;
 
-      const nextZone =
-        clamped > COMPLETE_THRESHOLD ? 1
-        : clamped < -DELETE_THRESHOLD ? 3
-        : clamped < -COMPLETE_THRESHOLD ? 2
-        : 0;
+          const nextZone =
+            clamped > COMPLETE_THRESHOLD ? 1
+            : clamped < -DELETE_THRESHOLD ? 3
+            : clamped < -COMPLETE_THRESHOLD ? 2
+            : 0;
 
-      if (zone.value !== nextZone) {
-        zone.value = nextZone;
-        if (nextZone !== 0) runOnJS(haptics.selection)();
-      }
-    })
-    .onEnd((event) => {
-      // Include a short velocity projection so a quick flick triggers the action.
-      const projected = (event.translationX + event.velocityX * 0.12) * dir;
+          if (zone.value !== nextZone) {
+            zone.value = nextZone;
+            if (nextZone !== 0) runOnJS(haptics.selection)();
+          }
+        })
+        .onEnd((event) => {
+          // Include a short velocity projection so a quick flick triggers the action.
+          const projected = (event.translationX + event.velocityX * 0.12) * dir;
 
-      let action: SwipeAction | null = null;
-      if (projected > COMPLETE_THRESHOLD) action = 'complete';
-      else if (projected < -DELETE_THRESHOLD) action = 'delete';
-      else if (projected < -COMPLETE_THRESHOLD) action = 'postpone';
+          let action: SwipeAction | null = null;
+          if (projected > COMPLETE_THRESHOLD) action = 'complete';
+          else if (projected < -DELETE_THRESHOLD) action = 'delete';
+          else if (projected < -COMPLETE_THRESHOLD) action = 'postpone';
 
-      zone.value = 0;
+          zone.value = 0;
 
-      if (action) {
-        translateX.value = withTiming(
-          (action === 'complete' ? MAX_TRANSLATION : -MAX_TRANSLATION) * dir,
-          { duration: reduced ? 0 : 140, easing: Easing.out(Easing.cubic) },
-        );
-        runOnJS(runAction)(action);
-      } else {
-        translateX.value = withTiming(0, SNAP_TIMING);
-      }
-    })
-    .onFinalize(() => {
-      zone.value = 0;
-    });
+          if (action) {
+            translateX.value = withTiming(
+              (action === 'complete' ? MAX_TRANSLATION : -MAX_TRANSLATION) * dir,
+              { duration: reduced ? 0 : 140, easing: Easing.out(Easing.cubic) },
+            );
+            runOnJS(runAction)(action);
+          } else {
+            translateX.value = withTiming(0, SNAP_TIMING);
+          }
+        })
+        .onFinalize(() => {
+          zone.value = 0;
+        }),
+    [selectionMode, dir, reduced, runAction, translateX, zone],
+  );
 
   const priorityColor = priorityColors[task.priority];
   const color = isDark ? priorityColor.dark : priorityColor.light;
@@ -146,25 +174,6 @@ function TaskCardImpl({
   const isActive = task.status === 'in_progress';
   const isPostponed = task.status === 'postponed';
   const subProgress = getSubtaskProgress(task);
-
-  // A soft pulse marks the one task currently in progress.
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    if (!isActive || reduced) {
-      pulse.value = 0;
-      return;
-    }
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
-      -1,
-      true,
-    );
-  }, [isActive, reduced, pulse]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 0.8 + pulse.value * 0.3 }],
-    opacity: 0.55 + pulse.value * 0.45,
-  }));
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }, { scale: cardScale.value }],
@@ -408,10 +417,14 @@ function TaskCardImpl({
             )}
 
             {isActive && (
-              <View style={[styles.statusBadge, styles.activeBadge, { backgroundColor: theme.infoSoft }]}>
-                <AnimatedView
-                  style={[styles.activeDot, { backgroundColor: theme.primary[500] }, pulseStyle]}
-                />
+              <View
+                style={[
+                  styles.statusBadge,
+                  styles.activeBadge,
+                  { backgroundColor: theme.infoSoft, shadowColor: theme.shadow.color },
+                ]}
+              >
+                <ActivePulse color={theme.primary[500]} reduced={reduced} />
                 <Text style={[styles.statusText, { color: theme.primary[isDark ? 300 : 600], fontFamily: typography.fontFamilySemiBold }]}>
                   {t('tasks.status.in_progress')}
                 </Text>
@@ -543,7 +556,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   conflictText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
     fontFamily: typography.fontFamilySemiBold,
   },
   overdueBadge: {
@@ -555,7 +568,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   overdueText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
     fontFamily: typography.fontFamilySemiBold,
   },
   mitBadge: {
@@ -598,7 +611,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   tagText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -610,7 +623,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   activeBadge: {
-    shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },

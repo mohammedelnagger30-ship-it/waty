@@ -1,18 +1,17 @@
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, Text, ScrollView, Pressable, Alert, TextInput } from 'react-native';
-import { ArrowLeft, Database, Download, Upload, Trash2, Activity, Wrench } from 'lucide-react-native';
+import { View, StyleSheet, Text, ScrollView, Alert, TextInput } from 'react-native';
+import { Database, Download, Upload, Trash2, Activity, Wrench } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { BackArrow } from '@/src/components/BackArrow';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Platform } from 'react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
-import { Button, Card } from '@/src/components';
+import { spacing, typography, radius, iconSize } from '@/src/theme';
+import { Button, Card, ScreenHeader, SectionHeader } from '@/src/components';
 import {
   taskRepository,
   goalRepository,
   planRepository,
+  recurringPlanRepository,
   habitRepository,
   reviewRepository,
   pomodoroRepository,
@@ -35,6 +34,7 @@ const BACKUP_KEYS = [
   'tasks',
   'goals',
   'plans',
+  'recurring_plans',
   'habits',
   'reviews',
   'pomodoros',
@@ -49,7 +49,7 @@ type BackupKey = (typeof BACKUP_KEYS)[number];
 
 // Old backups (version 1) did not include settings; those keys stay optional
 // on import so an old backup never fails or wipes current preferences.
-const OPTIONAL_KEYS: BackupKey[] = ['settings', 'notif_settings', 'task_templates'];
+const OPTIONAL_KEYS: BackupKey[] = ['settings', 'notif_settings', 'task_templates', 'recurring_plans'];
 
 // Clearing data keeps only the preferences that keep the app usable.
 const PRESERVE_KEYS: BackupKey[] = ['settings', 'notif_settings'];
@@ -58,6 +58,7 @@ const repositories: Record<BackupKey, { getAll: () => Promise<unknown[]>; replac
   tasks: taskRepository as never,
   goals: goalRepository as never,
   plans: planRepository as never,
+  recurring_plans: recurringPlanRepository as never,
   habits: habitRepository as never,
   reviews: reviewRepository as never,
   pomodoros: pomodoroRepository as never,
@@ -240,31 +241,19 @@ export default function DataScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <BackArrow size={24} color={theme.text.primary} />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('data.title')}
-            </Text>
-            <Text style={[styles.headerSubtitle, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-              {t('data.subtitle')}
-            </Text>
-          </View>
-          <View style={{ width: 24 }} />
-        </View>
-      </SafeAreaView>
+      <ScreenHeader
+        title={t('data.title')}
+        subtitle={t('data.subtitle')}
+        onBack={() => router.back()}
+      />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Download size={20} color={theme.primary[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('data.export')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Download size={iconSize.lg} color={theme.primary[500]} />}
+            title={t('data.export')}
+            color={theme.primary[500]}
+          />
           <Text style={[styles.desc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
             {t('data.exportDesc')}
           </Text>
@@ -282,12 +271,11 @@ export default function DataScreen() {
         </Card>
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Upload size={20} color={theme.secondary[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('data.import')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Upload size={iconSize.lg} color={theme.secondary[500]} />}
+            title={t('data.import')}
+            color={theme.secondary[500]}
+          />
           <Text style={[styles.desc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
             {t('data.importDesc')}
           </Text>
@@ -306,12 +294,11 @@ export default function DataScreen() {
         </Card>
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Activity size={20} color={theme.accent[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('data.health')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Activity size={iconSize.lg} color={theme.accent[500]} />}
+            title={t('data.health')}
+            color={theme.accent[500]}
+          />
           <Text style={[styles.desc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
             {t('data.healthDesc')}
           </Text>
@@ -384,12 +371,11 @@ export default function DataScreen() {
         ) : null}
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Database size={20} color={theme.error} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('data.clear')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Database size={iconSize.lg} color={theme.error} />}
+            title={t('data.clear')}
+            color={theme.error}
+          />
           <Text style={[styles.desc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
             {t('data.clearDesc')}
           </Text>

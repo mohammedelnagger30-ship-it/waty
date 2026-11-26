@@ -9,23 +9,26 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useTheme } from '@/src/context';
+import { useI18n } from '@/src/i18n';
 import { usePressAnimation } from '@/src/hooks/usePressAnimation';
 import { useReducedMotion } from '@/src/hooks/useReducedMotion';
 import { haptics } from '@/src/utils/haptics';
-import { spacing, radius } from '@/src/theme';
+import { spacing, radius, iconSize, iconStroke } from '@/src/theme';
 
 interface FABProps {
   onPress: () => void;
   icon?: ReactNode;
   bottom?: number;
+  accessibilityLabel?: string;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
 const HALO_TIMING = { duration: 1900, easing: Easing.out(Easing.quad) };
 
-export function FAB({ onPress, icon, bottom = 16 }: FABProps) {
+export function FAB({ onPress, icon, bottom = spacing.md, accessibilityLabel }: FABProps) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const reduced = useReducedMotion();
   const pulse = useSharedValue(0);
   const { onPressIn, onPressOut, style: pressStyle } = usePressAnimation({
@@ -49,6 +52,8 @@ export function FAB({ onPress, icon, bottom = 16 }: FABProps) {
   return (
     <AnimatedPressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? t('common.add')}
       onPressIn={() => {
         onPressIn();
         haptics.light();
@@ -75,7 +80,7 @@ export function FAB({ onPress, icon, bottom = 16 }: FABProps) {
         pointerEvents="none"
         style={[styles.halo, { borderColor: theme.primary[500] }, haloStyle]}
       />
-      {icon ?? <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />}
+      {icon ?? <Plus size={iconSize.xxl + 4} color="#FFFFFF" strokeWidth={iconStroke.emphasis} />}
     </AnimatedPressable>
   );
 }

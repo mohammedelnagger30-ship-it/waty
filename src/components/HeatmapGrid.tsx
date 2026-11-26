@@ -16,7 +16,7 @@ export function HeatmapGrid({ cells, size = 11, gap = 4, baseColor, levels, onPr
   const palette = levels?.length
     ? levels
     : [baseColor + '1F', baseColor + '55', baseColor + '99', baseColor];
-  const max = Math.max(1, ...cells.map((cell) => cell.count));
+  const max = cells.reduce((value, cell) => Math.max(value, cell.count), 1);
 
   const colorFor = (count: number) => {
     if (!count) return baseColor + '14';

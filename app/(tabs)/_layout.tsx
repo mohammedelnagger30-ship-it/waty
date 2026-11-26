@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
 import { settingsRepository, subscribeToSettings } from '@/src/storage';
 import type { Settings } from '@/src/storage/entities';
-import { spacing } from '@/src/theme';
+import { spacing, iconSize, iconStroke } from '@/src/theme';
 
 const TAB_DEFS = [
   { name: 'index', icon: Calendar, label: 'tab.today' },
@@ -20,6 +20,34 @@ const TAB_DEFS = [
   icon: typeof Calendar;
   label: TranslationKey;
 }>;
+
+type TabIconProps = {
+  Icon: typeof Calendar;
+  focused: boolean;
+  color: string;
+  activeColor: string;
+};
+
+/** Stable component identity keeps icons mounted across layout re-renders. */
+function TabIcon({ Icon, focused, color, activeColor }: TabIconProps) {
+  return (
+    <View
+      style={[
+        styles.iconWrap,
+        focused && {
+          backgroundColor: activeColor + '1C',
+          borderColor: activeColor + '33',
+        },
+      ]}
+    >
+      <Icon
+        color={color}
+        size={iconSize.xl}
+        strokeWidth={focused ? iconStroke.emphasis : iconStroke.regular}
+      />
+    </View>
+  );
+}
 
 function normalizedTabOrder(settings?: Pick<Settings, 'tabOrder'> | null): string[] {
   const stored = (settings?.tabOrder ?? []).filter((name) =>
@@ -47,48 +75,59 @@ export default function TabLayout() {
     return unsubscribe;
   }, []);
 
-  // Focused tabs get a pill and the tinted label/icon (no indicator dot).
-  const tabIcon = (Icon: typeof Calendar) =>
-    ({ focused, color }: { focused: boolean; color: string; size: number }) => (
-      <View style={[styles.iconWrap, focused && { backgroundColor: theme.primary[500] + '1C' }]}>
-        <Icon color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
-      </View>
-    );
+  // Stable icon renderers: a new anonymous component type would remount all
+  // five tab icons on every layout re-render.
+  const tabIcons = useMemo(() => {
+    const icons = {} as Record<
+      string,
+      (props: { focused: boolean; color: string; size: number }) => ReactNode
+    >;
+    TAB_DEFS.forEach((tab) => {
+      icons[tab.name] = ({ focused, color }) => (
+        <TabIcon Icon={tab.icon} focused={focused} color={color} activeColor={theme.primary[500]} />
+      );
+    });
+    return icons;
+  }, [theme.primary[500]]);
 
-  const orderedTabs = [...TAB_DEFS].sort(
-    (a, b) => tabOrder.indexOf(a.name) - tabOrder.indexOf(b.name),
+  const orderedTabs = useMemo(
+    () => [...TAB_DEFS].sort((a, b) => tabOrder.indexOf(a.name) - tabOrder.indexOf(b.name)),
+    [tabOrder],
+  );
+
+  const screenOptions = useMemo(
+    () => ({
+      headerShown: false,
+      tabBarActiveTintColor: theme.tab.active,
+      tabBarInactiveTintColor: theme.tab.inactive,
+      tabBarAllowFontScaling: false,
+      tabBarShowLabel: false,
+      tabBarStyle: {
+        backgroundColor: theme.tab.background,
+        borderTopColor: theme.border,
+        borderTopWidth: 1,
+        height: (Platform.OS === 'ios' ? 64 : 56) + Math.max(insets.bottom, 0),
+        paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 8 : 4),
+        paddingTop: 4,
+        paddingHorizontal: spacing.xs,
+      },
+      tabBarIconStyle: {
+        marginBottom: 0,
+      },
+    }),
+    [theme, insets.bottom],
   );
 
   return (
     <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: theme.tab.active,
-          tabBarInactiveTintColor: theme.tab.inactive,
-          tabBarAllowFontScaling: false,
-          tabBarShowLabel: false,
-          tabBarStyle: {
-            backgroundColor: theme.tab.background,
-            borderTopColor: theme.border,
-            borderTopWidth: 1,
-            height: (Platform.OS === 'ios' ? 64 : 56) + Math.max(insets.bottom, 0),
-            paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 8 : 4),
-            paddingTop: 4,
-            paddingHorizontal: spacing.xs,
-          },
-          tabBarIconStyle: {
-            marginBottom: 0,
-          },
-        }}
-      >
+      <Tabs screenOptions={screenOptions}>
         {orderedTabs.map((tab) => (
           <Tabs.Screen
             key={tab.name}
             name={tab.name}
             options={{
               title: t(tab.label),
-              tabBarIcon: tabIcon(tab.icon),
+              tabBarIcon: tabIcons[tab.name],
             }}
           />
         ))}
@@ -109,8 +148,10 @@ const styles = StyleSheet.create({
   },
   iconWrap: {
     width: 48,
-    height: 28,
-    borderRadius: 14,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },

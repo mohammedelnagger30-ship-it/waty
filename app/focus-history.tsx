@@ -6,13 +6,12 @@ import {
   StyleSheet,
   Text,
   ScrollView,
-  Pressable,
   RefreshControl,
 } from 'react-native';
-import { ChevronLeft, ChevronRight, Coffee, History, Timer } from 'lucide-react-native';
+import { Coffee, History, Timer } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, iconSize } from '@/src/theme';
 import { ScreenHeader, EmptyState, Chip, Card } from '@/src/components';
 import { pomodoroRepository, taskRepository } from '@/src/storage';
 import { PomodoroSession, Task } from '@/src/storage/entities';
@@ -21,7 +20,7 @@ type Filter = 'all' | 'focus' | 'break';
 
 export default function FocusHistoryScreen() {
   const { theme } = useTheme();
-  const { t, language, isRTL } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
 
   const [sessions, setSessions] = useState<PomodoroSession[]>([]);
@@ -105,11 +104,7 @@ export default function FocusHistoryScreen() {
       <ScreenHeader
         title={t('focus.title')}
         subtitle={t('focus.subtitle')}
-        right={(
-          <Pressable onPress={() => router.back()} hitSlop={10} style={{ padding: spacing.xs }}>
-            {isRTL ? <ChevronRight size={24} color={theme.text.secondary} /> : <ChevronLeft size={24} color={theme.text.secondary} />}
-          </Pressable>
-        )}
+        onBack={() => router.back()}
       />
 
       <ScrollView
@@ -121,33 +116,33 @@ export default function FocusHistoryScreen() {
         }
       >
         <View style={styles.summaryRow}>
-          <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Timer size={20} color={theme.primary[500]} />
+          <Card padded={false} style={styles.summaryCard}>
+            <Timer size={iconSize.lg} color={theme.primary[500]} />
             <Text style={[styles.summaryValue, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
               {totals.focus}
             </Text>
             <Text style={[styles.summaryLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
               {t('focus.total')}
             </Text>
-          </View>
-          <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <History size={20} color={theme.accent[500]} />
+          </Card>
+          <Card padded={false} style={styles.summaryCard}>
+            <History size={iconSize.lg} color={theme.accent[500]} />
             <Text style={[styles.summaryValue, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
               {totals.focusCount}
             </Text>
             <Text style={[styles.summaryLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
               {t('focus.sessions')}
             </Text>
-          </View>
-          <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Coffee size={20} color={theme.secondary[500]} />
+          </Card>
+          <Card padded={false} style={styles.summaryCard}>
+            <Coffee size={iconSize.lg} color={theme.secondary[500]} />
             <Text style={[styles.summaryValue, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
               {totals.breaks}
             </Text>
             <Text style={[styles.summaryLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
               {t('focus.break')}
             </Text>
-          </View>
+          </Card>
         </View>
 
         <View style={styles.filters}>
@@ -160,7 +155,7 @@ export default function FocusHistoryScreen() {
 
         {grouped.length === 0 ? (
           <EmptyState
-            icon={<History size={36} color={theme.text.tertiary} />}
+            icon={<History size={iconSize.hero} color={theme.text.tertiary} />}
             title={t('focus.empty')}
             description={t('focus.emptyDesc')}
           />

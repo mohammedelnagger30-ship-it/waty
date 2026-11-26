@@ -10,7 +10,6 @@ import {
   TextInput,
 } from 'react-native';
 import {
-  ArrowLeft,
   Check,
   Clock,
   Calendar,
@@ -27,15 +26,15 @@ import {
   Link2,
 } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { BackArrow } from '@/src/components/BackArrow';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
 import { Card } from '@/src/components/Card';
 import { Button } from '@/src/components/Button';
 import { Chip } from '@/src/components/Chip';
 import { ProgressBar } from '@/src/components/ProgressBar';
+import { ScreenHeader } from '@/src/components/ScreenHeader';
+import { LoadingState } from '@/src/components/LoadingState';
 import { PomodoroTimer } from '@/src/components/PomodoroTimer';
 import { TaskFormModal } from '@/src/components/TaskFormModal';
 import { taskRepository, generateId } from '@/src/storage';
@@ -210,11 +209,7 @@ export default function TaskDetailScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.loadingContainer}>
-          <Text style={{ color: theme.text.tertiary, fontFamily: typography.fontFamily }}>
-            {t('common.loading')}
-          </Text>
-        </View>
+        <LoadingState label={t('common.loading')} />
       </View>
     );
   }
@@ -222,14 +217,14 @@ export default function TaskDetailScreen() {
   if (!task) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.loadingContainer}>
-          <Text style={{ color: theme.text.tertiary, fontFamily: typography.fontFamily }}>
-            {t('common.error')}
-          </Text>
-          <Button variant="primary" onPress={() => router.back()} style={{ marginTop: spacing.md }}>
-            {t('common.back')}
-          </Button>
-        </View>
+        <LoadingState
+          label={t('common.error')}
+          action={
+            <Button variant="primary" onPress={() => router.back()} style={{ marginTop: spacing.md }}>
+              {t('common.back')}
+            </Button>
+          }
+        />
       </View>
     );
   }
@@ -245,27 +240,23 @@ export default function TaskDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
-        <View style={[styles.header, { backgroundColor: theme.background }]}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <BackArrow size={24} color={theme.text.primary} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-            {t('tasks.detail')}
-          </Text>
+      <ScreenHeader
+        title={t('tasks.detail')}
+        onBack={() => router.back()}
+        right={(
           <View style={styles.headerActions}>
             <Pressable onPress={handleDuplicate} hitSlop={12} style={styles.headerAction}>
-              <Copy size={20} color={theme.secondary[500]} />
+              <Copy size={iconSize.lg} color={theme.secondary[500]} />
             </Pressable>
             <Pressable onPress={() => setShowEdit(true)} hitSlop={12} style={styles.headerAction}>
-              <Pencil size={20} color={theme.text.secondary} />
+              <Pencil size={iconSize.lg} color={theme.text.secondary} />
             </Pressable>
             <Pressable onPress={handleDelete} hitSlop={12} style={styles.headerAction}>
-              <Trash2 size={20} color={theme.error} />
+              <Trash2 size={iconSize.lg} color={theme.error} />
             </Pressable>
           </View>
-        </View>
-      </SafeAreaView>
+        )}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -643,7 +634,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: 80,
+    paddingBottom: bottomSpace.normal,
   },
   titleCard: {
     flexDirection: 'row',

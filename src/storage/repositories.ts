@@ -1,9 +1,10 @@
-import { Task, Goal, Plan, Habit, DailyReview, Settings, PomodoroSession, TaskReminder, NotificationSettings, WeeklyReview, TaskTemplate } from './entities';
-import { createRepository, Repository } from './repository';
+import { Task, Goal, Plan, RecurringPlan, Habit, DailyReview, Settings, PomodoroSession, TaskReminder, NotificationSettings, WeeklyReview, TaskTemplate } from './entities';
+import { createRepository, invalidateRepositoryCache, Repository } from './repository';
 
 export const taskRepository: Repository<Task> = createRepository<Task>('tasks');
 export const goalRepository: Repository<Goal> = createRepository<Goal>('goals');
 export const planRepository: Repository<Plan> = createRepository<Plan>('plans');
+export const recurringPlanRepository: Repository<RecurringPlan> = createRepository<RecurringPlan>('recurring_plans');
 export const habitRepository: Repository<Habit> = createRepository<Habit>('habits');
 export const reviewRepository: Repository<DailyReview> = createRepository<DailyReview>('reviews');
 export const pomodoroRepository: Repository<PomodoroSession> = createRepository<PomodoroSession>('pomodoros');
@@ -146,6 +147,8 @@ export const settingsRepository = {
       const saved = existing
         ? (await this.update(SETTINGS_ID, settings))!
         : await this.create({ ...settings, id: SETTINGS_ID });
+      // getOrCreate() caches a promise; keep it pointing at the saved value.
+      settingsInit = Promise.resolve(saved);
       notifySettingsChanged(saved);
       return saved;
     });
@@ -158,6 +161,7 @@ export const settingsRepository = {
       const saved = existing
         ? (await this.update(SETTINGS_ID, updates))!
         : await this.create({ ...defaultSettings(), ...updates, id: SETTINGS_ID });
+      settingsInit = Promise.resolve(saved);
       notifySettingsChanged(saved);
       return saved;
     });
@@ -166,5 +170,6 @@ export const settingsRepository = {
   /** Drops the shared in-memory snapshot after a backup import. */
   invalidate(): void {
     settingsInit = null;
+    invalidateRepositoryCache('settings');
   },
 };

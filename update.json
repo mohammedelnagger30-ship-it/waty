@@ -1,9 +1,9 @@
 {
-  "version": "1.5.0",
-  "versionCode": 8,
-  "notes": "• تحليل المهام الأكثر تأثيرًا واقتراح انتصارات سريعة داخل شاشة المهام\n• فحص صحة البيانات مع إصلاح تلقائي آمن للروابط المكسورة ودورات التبعيات\n• ملخص أسبوعي جاهز للنسخ أو المشاركة من أرقام المراجعة\n• مصفوفة أولويات وكشف تعارض المواعيد مع ترتيب تلقائي للوقت\n• تسجيل سريع للعادات المستحقة من شاشة اليوم\n• إدخال ذكي للمهام وعمليات جماعية مع ترتيب بالسحب وملاحظات محفوظة\n• مؤقت تركيز بملء الشاشة وحجم خط محفوظ لا يتأثر بوضع الجوال البسيط\n• إحصائيات أعمق: سلاسل، مستويات، خرائط، أفضل أوقات التركيز وشارات تقدّم",
-  "notesEn": "• Impact analysis and quick-win suggestions on the Tasks screen\n• Data health audit with safe auto-repair for broken links and dependency cycles\n• Ready-made weekly summary you can copy or share\n• Eisenhower priority matrix and schedule conflict detection with auto-fix\n• Quick habit check-in for due habits on Today\n• Smart task parsing, bulk actions, drag ordering and saved filters\n• Fullscreen focus timer and persisted font scale that ignores Simple Mode\n• Deeper stats: streaks, levels, heatmaps, best focus hours and progress badges",
-  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.5.0/Orbit-release.apk",
-  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.5.0",
-  "sha256": "f0f12c2a3ff0092fbb7e7809329e85dfd6380ebfe9fc11a5721c5ac79249a3a8"
+  "version": "1.6.0",
+  "versionCode": 9,
+  "notes": "• شاشة يوم أبسط وأسرع مع إجراءات سريعة وبطاقة خطة واحدة وقائمة مهام قابلة للطي\n• مهام متكررة في تبويب الخطط: أيام محددة أو كل N يوم، وتظهر تلقائياً في اليوم\n• إيقاف السلسلة المتكررة بالكامل مع الحفاظ على المهام المكتملة في السجل\n• إصلاح جدولة الإشعارات وإعادة جدولتها عند الإنشاء والإيقاف والعودة للتطبيق\n• توحيد الرؤوس والأزرار والبطاقات والألوان والتباعد عبر الشاشات\n• نسخة Release مستقلة تعمل بدون Metro مع الحفاظ على بياناتك الحالية",
+  "notesEn": "• Simpler, faster Today screen with quick actions, one plan card and collapsible completed tasks\n• Recurring plans in the Plans tab: specific weekdays or every N days, automatically added to Home\n• Stop an entire recurring series while keeping completed occurrences as history\n• Fixed notification scheduling and rescheduling on create, cancel and app foreground\n• Unified headers, buttons, cards, colors and spacing across screens\n• Standalone Release build that runs without Metro and preserves your existing data",
+  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.6.0/Orbit-release.apk",
+  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.6.0",
+  "sha256": "aa3b127678319e77ae9f83408257a15c7cf42595aeb29cd9612771c23c6ccae0"
 }

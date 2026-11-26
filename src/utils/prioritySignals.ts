@@ -15,10 +15,10 @@ function isActive(task: Task): boolean {
 }
 
 /** A task locked behind an unfinished blocker cannot be the next best action. */
-function hasUnmetDependency(task: Task, tasks: Task[]): boolean {
+function hasUnmetDependency(task: Task, byId: Map<string, Task>): boolean {
   return (task.dependsOn ?? []).some((id) => {
-    const parent = tasks.find((item) => item.id === id);
-    return !!parent && parent.status !== 'done' && parent.status !== 'cancelled';
+    const parent = byId.get(id);
+    return !!parent && isActive(parent);
   });
 }
 
@@ -60,7 +60,7 @@ export function findHighImpactTasks(tasks: Task[], limit = 3): ImpactTask[] {
     .filter(
       (task) =>
         isActive(task) &&
-        !hasUnmetDependency(task, tasks) &&
+        !hasUnmetDependency(task, byId) &&
         (children.get(task.id)?.length ?? 0) > 0,
     )
     .map((task) => {
@@ -92,13 +92,14 @@ export interface QuickWin {
  */
 export function findQuickWins(tasks: Task[], now: Date = new Date(), limit = 3): QuickWin[] {
   const today = toLocalDateKey(now);
+  const byId = new Map(tasks.map((task) => [task.id, task]));
 
   return tasks
     .filter((task) => {
       if (!isActive(task)) return false;
       const minutes = task.estimatedMinutes ?? 0;
       if (minutes <= 0 || minutes > 25) return false;
-      if (hasUnmetDependency(task, tasks)) return false;
+      if (hasUnmetDependency(task, byId)) return false;
       return task.date <= today || task.priority === 'high' || task.isMIT === true;
     })
     .map((task) => {

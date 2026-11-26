@@ -20,6 +20,9 @@ export type TranslationKey =
   | 'calendar.noTasks'
   | 'tasks.noTasks'
   | 'tasks.noTasksDesc'
+  | 'tasks.noResults'
+  | 'tasks.noResultsDesc'
+  | 'tasks.clearFilters'
   | 'tasks.addTask'
   | 'tasks.search'
   | 'tasks.filter'
@@ -270,6 +273,22 @@ export type TranslationKey =
   | 'plans.weeklyPlan'
   | 'plans.monthlyPlan'
   | 'plans.customPlan'
+  | 'plans.recurringTab'
+  | 'plans.newRecurring'
+  | 'plans.recurringDesc'
+  | 'plans.recurringTitle'
+  | 'plans.recurringTime'
+  | 'plans.scheduleMode'
+  | 'plans.modeWeekdays'
+  | 'plans.modeInterval'
+  | 'plans.intervalDays'
+  | 'plans.untilCancelled'
+  | 'plans.noRecurring'
+  | 'plans.noRecurringDesc'
+  | 'plans.cancelRecurring'
+  | 'plans.cancelRecurringConfirm'
+  | 'plans.recurringNeedDays'
+  | 'plans.recurringNeedInterval'
   | 'stats.overview'
   | 'stats.completed'
   | 'stats.pending'
@@ -376,6 +395,21 @@ export type TranslationKey =
   | 'planning.autoDesc'
   | 'planning.scheduled'
   | 'planning.noCandidates'
+  | 'planning.batchAction'
+  | 'planning.batchTitle'
+  | 'planning.batchDesc'
+  | 'planning.batchDay'
+  | 'planning.batchWeek'
+  | 'planning.addRow'
+  | 'planning.rowTitle'
+  | 'planning.rowTime'
+  | 'planning.rowDay'
+  | 'planning.removeRow'
+  | 'planning.savePlan'
+  | 'planning.savedPlan'
+  | 'planning.emptyRows'
+  | 'planning.prevDay'
+  | 'planning.nextDay'
   | 'weekly.title'
   | 'weekly.subtitle'
   | 'weekly.weekOf'
@@ -537,6 +571,7 @@ export type TranslationKey =
   | 'today.mitDesc'
   | 'today.noMIT'
   | 'today.markMIT'
+  | 'today.chooseTask'
   | 'today.unmarkMIT'
   | 'today.habits'
   | 'today.habitsHint'
@@ -611,7 +646,18 @@ export type TranslationKey =
   | 'settings.fontScaleSize'
   | 'settings.fontScaleCompact'
   | 'settings.fontScaleDefault'
-  | 'settings.fontScaleComfortable';
+  | 'settings.fontScaleComfortable'
+  | 'timePicker.title'
+  | 'timePicker.select'
+  | 'timePicker.hour'
+  | 'timePicker.minute'
+  | 'timePicker.now'
+  | 'timePicker.inHour'
+  | 'timePicker.noon'
+  | 'timePicker.clear'
+  | 'timePicker.confirm'
+  | 'timePicker.am'
+  | 'timePicker.pm';
 
 type Translations = Record<TranslationKey, string>;
 
@@ -636,6 +682,9 @@ export const translations: Record<Language, Translations> = {
     'calendar.noTasks': 'لا توجد مهام في هذا اليوم',
     'tasks.noTasks': 'لا توجد مهام',
     'tasks.noTasksDesc': 'أضف مهمة جديدة لتنظيم وقتك',
+    'tasks.noResults': 'لا توجد نتائج مطابقة',
+    'tasks.noResultsDesc': 'جرّب تغيير التصفية أو البحث',
+    'tasks.clearFilters': 'مسح التصفية',
     'tasks.addTask': 'إضافة مهمة',
     'tasks.search': 'بحث عن مهمة...',
     'tasks.filter': 'تصفية',
@@ -886,6 +935,22 @@ export const translations: Record<Language, Translations> = {
     'plans.weeklyPlan': 'خطة أسبوعية',
     'plans.monthlyPlan': 'خطة شهرية',
     'plans.customPlan': 'خطة مخصصة',
+    'plans.recurringTab': 'متكررة',
+    'plans.newRecurring': 'مهمة متكررة',
+    'plans.recurringDesc': 'اكتب المهمة واختار أيامها أو كل يومين. هتظهر في اليوم تلقائياً وهتستمر لغاية ما توقفها.',
+    'plans.recurringTitle': 'اسم المهمة',
+    'plans.recurringTime': 'الوقت',
+    'plans.scheduleMode': 'نمط التكرار',
+    'plans.modeWeekdays': 'أيام محددة',
+    'plans.modeInterval': 'كل N يوم',
+    'plans.intervalDays': 'عدد الأيام',
+    'plans.untilCancelled': 'لحد الإلغاء',
+    'plans.noRecurring': 'لا توجد مهمات متكررة بعد',
+    'plans.noRecurringDesc': 'أضف مهمة تتكرر في أيام محددة أو كل يومين وتبقى ثابتة لحد ما توقفها',
+    'plans.cancelRecurring': 'إيقاف التكرار',
+    'plans.cancelRecurringConfirm': 'هيتم إيقاف التكرار وحذف النسخ اللي لسه ما اكتملتش. النسخ المكتملة هتفضل في السجل. متابعة؟',
+    'plans.recurringNeedDays': 'اختار يوم واحد على الأقل.',
+    'plans.recurringNeedInterval': 'اكتب عدد أيام صحيح (1 أو أكتر).',
     'stats.overview': 'نظرة عامة',
     'stats.completed': 'مكتملة',
     'stats.pending': 'قيد الانتظار',
@@ -992,6 +1057,21 @@ export const translations: Record<Language, Translations> = {
     'planning.autoDesc': 'وزّع المهام غير المجدولة على الأيام المتاحة حسب الأولوية',
     'planning.scheduled': 'تم ترتيب المهام',
     'planning.noCandidates': 'لا توجد مهام تحتاج ترتيباً',
+    'planning.batchAction': 'خطّط دفعة واحدة',
+    'planning.batchTitle': 'خطّط يومك أو أسبوعك',
+    'planning.batchDesc': 'ضيف كل المهام مرة واحدة، وهتاخد تذكير تلقائي في موعد كل مهمة.',
+    'planning.batchDay': 'يوم',
+    'planning.batchWeek': 'أسبوع',
+    'planning.addRow': 'إضافة مهمة',
+    'planning.rowTitle': 'المهمة',
+    'planning.rowTime': 'الوقت',
+    'planning.rowDay': 'اليوم',
+    'planning.removeRow': 'حذف المهمة من الخطة',
+    'planning.savePlan': 'حفظ الخطة',
+    'planning.savedPlan': 'اتحفظت {count} مهمة وهتتذكّر في مواعيدها',
+    'planning.emptyRows': 'ضيف مهمة واحدة على الأقل',
+    'planning.prevDay': 'اليوم السابق',
+    'planning.nextDay': 'اليوم التالي',
     'weekly.title': 'المراجعة الأسبوعية',
     'weekly.subtitle': 'تأمل في أسبوعك وخطط لما بعده',
     'weekly.weekOf': 'أسبوع',
@@ -1071,6 +1151,17 @@ export const translations: Record<Language, Translations> = {
     'common.undo': 'تراجع',
     'common.save': 'حفظ',
     'common.confirm': 'تأكيد',
+    'timePicker.title': 'اختر الوقت',
+    'timePicker.select': 'اختر الوقت',
+    'timePicker.hour': 'الساعة',
+    'timePicker.minute': 'الدقيقة',
+    'timePicker.now': 'الآن',
+    'timePicker.inHour': 'بعد ساعة',
+    'timePicker.noon': 'الظهر ١٢',
+    'timePicker.clear': 'بدون وقت',
+    'timePicker.confirm': 'تم',
+    'timePicker.am': 'صباحاً',
+    'timePicker.pm': 'مساءً',
     'common.search': 'بحث',
     'common.loading': 'جاري التحميل...',
     'common.error': 'حدث خطأ',
@@ -1152,7 +1243,8 @@ export const translations: Record<Language, Translations> = {
     'today.mit': 'أهم 3 مهام',
     'today.mitDesc': 'ركّز على الأهم اليوم',
     'today.noMIT': 'لم تحدد أي مهمة كأهم مهمة',
-    'today.markMIT': 'تحديد كأهم مهمة',
+    'today.markMIT': 'حدّد مهمة من قائمتك علشان تبدأ بيها يومك',
+    'today.chooseTask': 'اختيار مهمة',
     'today.unmarkMIT': 'إلغاء التحديد',
     'today.habits': 'عادات اليوم',
     'today.habitsHint': 'اعمل علامة بسرعة بعد التنفيذ',
@@ -1249,6 +1341,9 @@ export const translations: Record<Language, Translations> = {
     'calendar.noTasks': 'No tasks on this day',
     'tasks.noTasks': 'No tasks yet',
     'tasks.noTasksDesc': 'Add a new task to organize your time',
+    'tasks.noResults': 'No matching tasks',
+    'tasks.noResultsDesc': 'Try changing the filter or search',
+    'tasks.clearFilters': 'Clear filters',
     'tasks.addTask': 'Add Task',
     'tasks.search': 'Search tasks...',
     'tasks.filter': 'Filter',
@@ -1499,6 +1594,22 @@ export const translations: Record<Language, Translations> = {
     'plans.weeklyPlan': 'Weekly plan',
     'plans.monthlyPlan': 'Monthly plan',
     'plans.customPlan': 'Custom plan',
+    'plans.recurringTab': 'Recurring',
+    'plans.newRecurring': 'Recurring task',
+    'plans.recurringDesc': 'Name the task and pick its weekdays or an every-N-days pattern. It appears in Today automatically and stays until you stop it.',
+    'plans.recurringTitle': 'Task name',
+    'plans.recurringTime': 'Time',
+    'plans.scheduleMode': 'Repeat pattern',
+    'plans.modeWeekdays': 'Specific days',
+    'plans.modeInterval': 'Every N days',
+    'plans.intervalDays': 'Days interval',
+    'plans.untilCancelled': 'Until stopped',
+    'plans.noRecurring': 'No recurring tasks yet',
+    'plans.noRecurringDesc': 'Add a task that repeats on set days or every few days and stays fixed until you stop it',
+    'plans.cancelRecurring': 'Stop recurrence',
+    'plans.cancelRecurringConfirm': 'This stops the series and removes unfinished occurrences. Completed history is kept. Continue?',
+    'plans.recurringNeedDays': 'Pick at least one day.',
+    'plans.recurringNeedInterval': 'Enter a valid number of days (1 or more).',
     'stats.overview': 'Overview',
     'stats.completed': 'Completed',
     'stats.pending': 'Pending',
@@ -1605,6 +1716,21 @@ export const translations: Record<Language, Translations> = {
     'planning.autoDesc': 'Distribute unscheduled tasks across available days by priority',
     'planning.scheduled': 'Tasks scheduled',
     'planning.noCandidates': 'No tasks need scheduling',
+    'planning.batchAction': 'Plan in one go',
+    'planning.batchTitle': 'Plan a day or a week',
+    'planning.batchDesc': 'Add all your tasks at once — each one gets a reminder at its time.',
+    'planning.batchDay': 'Day',
+    'planning.batchWeek': 'Week',
+    'planning.addRow': 'Add task',
+    'planning.rowTitle': 'Task',
+    'planning.rowTime': 'Time',
+    'planning.rowDay': 'Day',
+    'planning.removeRow': 'Remove from plan',
+    'planning.savePlan': 'Save plan',
+    'planning.savedPlan': 'Saved {count} tasks — you’ll be reminded on time',
+    'planning.emptyRows': 'Add at least one task',
+    'planning.prevDay': 'Previous day',
+    'planning.nextDay': 'Next day',
     'weekly.title': 'Weekly Review',
     'weekly.subtitle': 'Reflect on your week and plan ahead',
     'weekly.weekOf': 'Week of',
@@ -1684,6 +1810,17 @@ export const translations: Record<Language, Translations> = {
     'common.undo': 'Undo',
     'common.save': 'Save',
     'common.confirm': 'Confirm',
+    'timePicker.title': 'Choose time',
+    'timePicker.select': 'Choose time',
+    'timePicker.hour': 'Hour',
+    'timePicker.minute': 'Minute',
+    'timePicker.now': 'Now',
+    'timePicker.inHour': 'In 1 hour',
+    'timePicker.noon': 'Noon 12',
+    'timePicker.clear': 'No time',
+    'timePicker.confirm': 'Done',
+    'timePicker.am': 'AM',
+    'timePicker.pm': 'PM',
     'common.search': 'Search',
     'common.loading': 'Loading...',
     'common.error': 'An error occurred',
@@ -1765,7 +1902,8 @@ export const translations: Record<Language, Translations> = {
     'today.mit': 'Top 3 Tasks',
     'today.mitDesc': 'Focus on what matters most',
     'today.noMIT': 'No top tasks marked yet',
-    'today.markMIT': 'Mark as top task',
+    'today.markMIT': 'Pick one from your list to start the day',
+    'today.chooseTask': 'Choose a task',
     'today.unmarkMIT': 'Unmark',
     'today.habits': "Today's habits",
     'today.habitsHint': 'Quick check-in after you do them',

@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight } from 'lucide-react-native';
 import { useI18n } from '@/src/i18n';
+import { iconSize, iconStroke } from '@/src/theme';
 
 interface BackArrowProps {
   size?: number;
@@ -7,7 +8,8 @@ interface BackArrowProps {
 }
 
 /** Navigation arrow that flips in RTL layouts. */
-export function BackArrow({ size = 24, color }: BackArrowProps) {
+export function BackArrow({ size = iconSize.xxl, color }: BackArrowProps) {
   const { isRTL } = useI18n();
-  return isRTL ? <ArrowRight size={size} color={color} /> : <ArrowLeft size={size} color={color} />;
+  const Icon = isRTL ? ArrowRight : ArrowLeft;
+  return <Icon size={size} color={color} strokeWidth={iconStroke.emphasis} />;
 }

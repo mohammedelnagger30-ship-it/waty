@@ -1,16 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   Text,
   ScrollView,
-  TextInput,
   Alert,
   Platform,
   Pressable,
 } from 'react-native';
 import {
-  ArrowLeft,
   Bell,
   Sunrise,
   Moon,
@@ -25,13 +23,11 @@ import {
   Database,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { BackArrow } from '@/src/components/BackArrow';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
-import { Card, Toggle, Chip, Button } from '@/src/components';
+import { spacing, typography, radius, bottomSpace } from '@/src/theme';
+import { Card, Toggle, Chip, Button, TimePickerField, LoadingState, ScreenHeader } from '@/src/components';
 import { notificationSettingsRepository } from '@/src/storage';
 import { NotificationSettings, ReminderOffset, AlarmSoundId } from '@/src/storage/entities';
 import {
@@ -128,28 +124,14 @@ export default function NotificationSettingsScreen() {
   if (loading || !settings) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.loadingContainer}>
-          <Text style={{ color: theme.text.tertiary, fontFamily: typography.fontFamily }}>
-            {t('common.loading')}
-          </Text>
-        </View>
+        <LoadingState label={t('common.loading')} />
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <BackArrow size={24} color={theme.text.primary} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-            {t('notifications.title')}
-          </Text>
-          <View style={{ width: 24 }} />
-        </View>
-      </SafeAreaView>
+      <ScreenHeader title={t('notifications.title')} onBack={() => router.back()} />
 
       <ScrollView
         style={styles.scrollView}
@@ -262,7 +244,6 @@ export default function NotificationSettingsScreen() {
                 await updateSettings({ morningSummaryTime: v });
                 await rescheduleAllNotifications();
               }}
-              theme={theme}
             />
           )}
         </Card>
@@ -297,7 +278,6 @@ export default function NotificationSettingsScreen() {
                 await updateSettings({ eveningReviewTime: v });
                 await rescheduleAllNotifications();
               }}
-              theme={theme}
             />
           )}
         </Card>
@@ -332,7 +312,6 @@ export default function NotificationSettingsScreen() {
                 await updateSettings({ overdueReminderTime: v });
                 await rescheduleAllNotifications();
               }}
-              theme={theme}
             />
           )}
         </Card>
@@ -367,7 +346,6 @@ export default function NotificationSettingsScreen() {
                 await updateSettings({ habitReminderTime: v });
                 await rescheduleAllNotifications();
               }}
-              theme={theme}
             />
           )}
         </Card>
@@ -402,7 +380,6 @@ export default function NotificationSettingsScreen() {
                 await updateSettings({ untimedTaskReminderTime: v });
                 await rescheduleAllNotifications();
               }}
-              theme={theme}
             />
           )}
         </Card>
@@ -437,7 +414,6 @@ export default function NotificationSettingsScreen() {
                 await updateSettings({ weeklyBackupTime: v });
                 await rescheduleAllNotifications();
               }}
-              theme={theme}
             />
           ) : null}
         </Card>
@@ -476,8 +452,7 @@ export default function NotificationSettingsScreen() {
                   await updateSettings({ quietHoursStart: v });
                   await rescheduleAllNotifications();
                 }}
-                theme={theme}
-              />
+                />
               <View style={{ width: spacing.md }} />
               <TimeInputRow
                 label={t('notifications.quietEnd')}
@@ -486,8 +461,7 @@ export default function NotificationSettingsScreen() {
                   await updateSettings({ quietHoursEnd: v });
                   await rescheduleAllNotifications();
                 }}
-                theme={theme}
-              />
+                />
             </View>
           )}
         </Card>
@@ -612,67 +586,16 @@ function TimeInputRow({
   label,
   value,
   onChange,
-  theme,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
-  theme: ReturnType<typeof useTheme>['theme'];
 }) {
-  // Keep typing local. Persist + reschedule only when the value is committed
-  // (blur / submit), so each keystroke no longer triggers an AsyncStorage
-  // read-write and a full reschedule of every task reminder.
-  const [draft, setDraft] = useState(value);
-  const committed = useRef(value);
-
-  useEffect(() => {
-    if (value !== committed.current) {
-      committed.current = value;
-      setDraft(value);
-    }
-  }, [value]);
-
-  const commit = () => {
-    const next = draft.trim();
-    if (!/^\d{1,2}:\d{2}$/.test(next)) {
-      setDraft(committed.current);
-      return;
-    }
-    const [h, m] = next.split(':').map(Number);
-    const normalized = `${String(Math.min(23, Math.max(0, h))).padStart(2, '0')}:${String(Math.min(59, Math.max(0, m))).padStart(2, '0')}`;
-    setDraft(normalized);
-    if (normalized === committed.current) return;
-    committed.current = normalized;
-    onChange(normalized);
-  };
-
+  // The picker commits only on confirm, so rescheduling happens once instead
+  // of on every keystroke.
   return (
     <View style={styles.timeInputRow}>
-      <View style={styles.timeInputLabelRow}>
-        <Clock size={15} color={theme.text.tertiary} />
-        <Text style={[styles.timeInputLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-          {label}
-        </Text>
-      </View>
-      <TextInput
-        value={draft}
-        onChangeText={setDraft}
-        onBlur={commit}
-        onSubmitEditing={commit}
-        placeholder="HH:mm"
-        placeholderTextColor={theme.text.tertiary}
-        keyboardType="numbers-and-punctuation"
-        maxLength={5}
-        style={[
-          styles.timeInput,
-          {
-            color: theme.text.primary,
-            backgroundColor: theme.surfaceSecondary,
-            borderColor: theme.border,
-            fontFamily: typography.fontFamily,
-          },
-        ]}
-      />
+      <TimePickerField label={label} value={value} onChange={onChange} compact />
     </View>
   );
 }
@@ -706,7 +629,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: 80,
+    paddingBottom: bottomSpace.normal,
   },
   bannerRow: {
     flexDirection: 'row',

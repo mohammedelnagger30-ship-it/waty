@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, Pressable, TextInput } from 'react-native';
-import { Clock, Check } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { ModalSheet } from './ModalSheet';
+import { TimePickerField } from './TimePickerField';
 import { Button } from './Button';
 import { Chip } from './Chip';
 import { Task, TaskPriority } from '@/src/storage/entities';
@@ -113,26 +114,12 @@ export function QuickAddModal({ visible, onClose, onAdd, onMoreDetails }: QuickA
           })}
         </View>
 
-        <View
-          style={[
-            styles.inputContainer,
-            {
-              backgroundColor: theme.surfaceSecondary,
-              borderColor: theme.border,
-              borderRadius: radius.md,
-            },
-          ]}
-        >
-          <Clock size={20} color={theme.text.tertiary} style={{ marginEnd: spacing.sm }} />
-          <TextInput
-            value={time}
-            onChangeText={setTime}
-            placeholder="HH:mm"
-            placeholderTextColor={theme.text.tertiary}
-            keyboardType="numbers-and-punctuation"
-            style={[styles.input, { color: theme.text.primary, fontFamily: typography.fontFamily }]}
-          />
-        </View>
+        <TimePickerField
+          label={t('tasks.quickAddTime')}
+          value={time}
+          onChange={setTime}
+          allowClear
+        />
 
         <QuickTimeChips
           date={date}

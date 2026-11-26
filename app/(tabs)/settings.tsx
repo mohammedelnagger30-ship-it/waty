@@ -29,12 +29,12 @@ import Animated from 'react-native-reanimated';
 import { useTheme } from '@/src/context';
 import { useFontScale } from '@/src/context/FontScaleProvider';
 import { useI18n, Language } from '@/src/i18n';
-import { palettes, spacing, typography, radius, type PaletteDefinition } from '@/src/theme';
+import { palettes, spacing, typography, radius, iconSize, type PaletteDefinition } from '@/src/theme';
 import type { PaletteId } from '@/src/storage/entities';
 import { haptics } from '@/src/utils/haptics';
 import { usePressAnimation } from '@/src/hooks/usePressAnimation';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
-import { Card, Chip, Toggle } from '@/src/components';
+import { Card, Chip, Toggle, SectionHeader } from '@/src/components';
 import { settingsRepository } from '@/src/storage';
 import { Settings } from '@/src/storage/entities';
 import { useAppUpdate, getCurrentVersion } from '@/src/updates';
@@ -145,8 +145,8 @@ function NavRow({ icon, title, description, onPress }: NavRowProps) {
         ) : null}
       </View>
       {isRTL
-        ? <ChevronLeft size={20} color={theme.text.tertiary} />
-        : <ChevronRight size={20} color={theme.text.tertiary} />}
+        ? <ChevronLeft size={iconSize.lg} color={theme.text.tertiary} />
+        : <ChevronRight size={iconSize.lg} color={theme.text.tertiary} />}
     </Pressable>
   );
 }
@@ -213,12 +213,10 @@ export default function SettingsScreen() {
       <ScreenHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Globe size={20} color={theme.primary[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
-              {t('settings.language')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Globe size={iconSize.lg} color={theme.primary[500]} />}
+            title={t('settings.language')}
+          />
           <View style={styles.chipRow}>
             <Chip selected={language === 'ar'} onPress={() => setLanguage('ar' as Language)}>
               العربية
@@ -230,12 +228,10 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Sun size={20} color={theme.secondary[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
-              {t('settings.theme')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Sun size={iconSize.lg} color={theme.secondary[500]} />}
+            title={t('settings.theme')}
+          />
           <View style={styles.chipRow}>
             <Chip selected={mode === 'light'} onPress={() => setMode('light')}>
               <View style={styles.chipContent}>
@@ -270,12 +266,10 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Palette size={20} color={theme.primary[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
-              {t('settings.colors')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Palette size={iconSize.lg} color={theme.primary[500]} />}
+            title={t('settings.colors')}
+          />
           <Text style={[styles.paletteDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
             {t('settings.colorsDesc')}
           </Text>
@@ -292,12 +286,11 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Target size={20} color={theme.success} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('settings.weeklyGoals')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Target size={iconSize.lg} color={theme.success} />}
+            title={t('settings.weeklyGoals')}
+            color={theme.success}
+          />
           <View style={styles.goalInputRow}>
             <Text style={[styles.goalInputLabel, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
               {t('settings.weeklyTasksGoal')}
@@ -323,24 +316,19 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Repeat size={20} color={theme.secondary[500]} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                {t('settings.tabOrder')}
-              </Text>
-              <Text style={[styles.navDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                {t('settings.tabOrderDesc')}
-              </Text>
-            </View>
-          </View>
+          <SectionHeader
+            icon={<Repeat size={iconSize.lg} color={theme.secondary[500]} />}
+            title={t('settings.tabOrder')}
+            description={t('settings.tabOrderDesc')}
+            color={theme.secondary[500]}
+          />
           {getTabNames().map((name, index) => (
             <View key={name} style={styles.tabOrderRow}>
               <Text style={[styles.navTitle, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
                 {t(TAB_LABEL_KEYS[name as keyof typeof TAB_LABEL_KEYS] as Parameters<typeof t>[0])}
               </Text>
               <Pressable disabled={index === 0} onPress={() => void moveTab(name, -1)} hitSlop={8} style={{ padding: 4, opacity: index === 0 ? 0.3 : 1 }}>
-                <ChevronUp size={18} color={theme.text.secondary} />
+                <ChevronUp size={iconSize.md} color={theme.text.secondary} />
               </Pressable>
               <Pressable
                 disabled={index === getTabNames().length - 1}
@@ -348,7 +336,7 @@ export default function SettingsScreen() {
                 hitSlop={8}
                 style={{ padding: 4, opacity: index === getTabNames().length - 1 ? 0.3 : 1 }}
               >
-                <ChevronDown size={18} color={theme.text.secondary} />
+                <ChevronDown size={iconSize.md} color={theme.text.secondary} />
               </Pressable>
             </View>
           ))}
@@ -356,48 +344,48 @@ export default function SettingsScreen() {
 
         <Card style={styles.section}>
           <NavRow
-            icon={<Bell size={20} color={theme.primary[500]} />}
+            icon={<Bell size={iconSize.lg} color={theme.primary[500]} />}
             title={t('notifications.title')}
             onPress={() => router.push('/notifications')}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
-            icon={<Search size={20} color={theme.secondary[500]} />}
+            icon={<Search size={iconSize.lg} color={theme.secondary[500]} />}
             title={t('settings.search')}
             description={t('settings.searchDesc')}
             onPress={() => router.push('/search')}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
-            icon={<Layers size={20} color={theme.success} />}
+            icon={<Layers size={iconSize.lg} color={theme.success} />}
             title={t('templates.title')}
             description={t('templates.subtitle')}
             onPress={() => router.push('/templates')}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
-            icon={<Timer size={20} color={theme.accent[500]} />}
+            icon={<Timer size={iconSize.lg} color={theme.accent[500]} />}
             title={t('pomodoro.title')}
             description={t('today.startFocus')}
             onPress={() => router.push('/focus')}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
-            icon={<Timer size={20} color={theme.secondary[500]} />}
+            icon={<Timer size={iconSize.lg} color={theme.secondary[500]} />}
             title={t('focus.viewHistory')}
             description={t('focus.subtitle')}
             onPress={() => router.push('/focus-history')}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
-            icon={<ClipboardCheck size={20} color={theme.accent[500]} />}
+            icon={<ClipboardCheck size={iconSize.lg} color={theme.accent[500]} />}
             title={t('settings.weeklyReview')}
             description={t('settings.weeklyReviewDesc')}
             onPress={() => router.push('/weekly-review')}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
-            icon={<DownloadCloud size={20} color={theme.info} />}
+            icon={<DownloadCloud size={iconSize.lg} color={theme.info} />}
             title={t('update.check')}
             description={checking ? t('update.checking') : t('update.checkDesc')}
             onPress={() => {
@@ -406,7 +394,7 @@ export default function SettingsScreen() {
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
-            icon={<Database size={20} color={theme.warning} />}
+            icon={<Database size={iconSize.lg} color={theme.warning} />}
             title={t('settings.dataExport')}
             description={t('settings.dataExportDesc')}
             onPress={() => router.push('/data')}
@@ -417,7 +405,7 @@ export default function SettingsScreen() {
           <Card style={styles.section}>
             <View style={styles.toggleRow}>
               <View style={styles.toggleRowLeft}>
-                <Repeat size={20} color={theme.accent[500]} />
+                <Repeat size={iconSize.lg} color={theme.accent[500]} />
                 <View style={styles.toggleRowText}>
                   <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
                     {t('settings.autoRollover')}
@@ -435,7 +423,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
             <View style={styles.toggleRow}>
               <View style={styles.toggleRowLeft}>
-                <Calendar size={20} color={theme.secondary[500]} />
+                <Calendar size={iconSize.lg} color={theme.secondary[500]} />
                 <View style={styles.toggleRowText}>
                   <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
                     {t('settings.hijriDate')}
@@ -454,21 +442,15 @@ export default function SettingsScreen() {
         )}
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Type size={20} color={theme.primary[500]} />
-            <View style={{ flex: 1, marginStart: spacing.xs }}>
-              <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
-                {t('settings.fontScaleTitle')}
-              </Text>
-              <Text style={[styles.paletteDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                {t('settings.fontScaleSubtitle')}
-              </Text>
-            </View>
-          </View>
+          <SectionHeader
+            icon={<Type size={iconSize.lg} color={theme.primary[500]} />}
+            title={t('settings.fontScaleTitle')}
+            description={t('settings.fontScaleSubtitle')}
+          />
 
           {isSystemScaleDetected && (
             <View style={[styles.detectionBanner, { backgroundColor: theme.primary[500] + '14', borderColor: theme.primary[500] + '35' }]}>
-              <Smartphone size={18} color={theme.primary[500]} />
+              <Smartphone size={iconSize.md} color={theme.primary[500]} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.detectionTitle, { color: theme.primary[500], fontFamily: typography.fontFamilyBold }]}>
                   {t('settings.fontScaleDetected')} ({systemFontScale.toFixed(1)}x)
@@ -540,12 +522,11 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Info size={20} color={theme.accent[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
-              {t('settings.about')}
-            </Text>
-          </View>
+          <SectionHeader
+            icon={<Info size={iconSize.lg} color={theme.accent[500]} />}
+            title={t('settings.about')}
+            color={theme.accent[500]}
+          />
           <Text style={[styles.aboutText, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
             {t('settings.aboutDesc')}
           </Text>

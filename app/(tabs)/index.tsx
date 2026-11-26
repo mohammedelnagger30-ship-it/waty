@@ -13,20 +13,17 @@ import {
 } from 'react-native';
 import {
   Bell,
-  BarChart3,
   Plus,
-  Calendar,
-  Target,
   CheckCircle2,
   Clock,
   Star,
   StarOff,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Focus,
   ClipboardList,
   CalendarDays,
-  Sparkles,
   GripVertical,
   AlertTriangle,
   Check,
@@ -35,22 +32,21 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
 import { taskRepository, settingsRepository, habitRepository } from '@/src/storage';
 import { Task, TaskStatus, TaskPriority, Settings, Habit } from '@/src/storage/entities';
-import { scheduleTaskReminders, rescheduleTaskReminders, cancelTaskReminders } from '@/src/notifications';
+import { scheduleTaskReminders, rescheduleTaskReminders, cancelTaskReminders, scheduleHabitReminders, rescheduleAllNotifications } from '@/src/notifications';
 import { todayISODate } from '@/src/storage/repository';
 import { getHijriDate, getFullDateString, getGreeting } from '@/src/utils/dateUtils';
 import { priorityColors, categoryColors, createDefaultTask, completeRepeatingTask, getUnmetDependencies, findScheduleConflicts } from '@/src/utils/taskUtils';
 import { runAutoRollover, shouldPromptRollover } from '@/src/utils/rolloverUtils';
 import { isHabitCompletedOn, isHabitDueOn, toggleHabitDate } from '@/src/utils/habitUtils';
+import { ensureRecurringTasks } from '@/src/utils/recurringUtils';
 import { ProgressRing } from '@/src/components/ProgressRing';
-import { Card, EmptyState, Button, TaskFormModal } from '@/src/components';
+import { Card, EmptyState, LoadingState, SectionHeader, Button, TaskFormModal } from '@/src/components';
 import { QuickAddModal } from '@/src/components/QuickAddModal';
 import { FocusTaskPickerModal } from '@/src/components/FocusTaskPickerModal';
 import { FAB } from '@/src/components/FAB';
-
-type ViewMode = 'timeline' | 'list';
 
 const ROW_HEIGHT = 112;
 
@@ -76,7 +72,7 @@ function DragHandle({ onMove, color }: { onMove: (delta: number) => void; color:
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.dragHandle, style]}>
-        <GripVertical size={18} color={color} />
+        <GripVertical size={iconSize.md} color={color} />
       </Animated.View>
     </GestureDetector>
   );
@@ -92,7 +88,7 @@ export default function TodayScreen() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('timeline');
+  const [showCompleted, setShowCompleted] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formTask, setFormTask] = useState<Task | null>(null);
@@ -104,6 +100,14 @@ export default function TodayScreen() {
     setSettings(s);
 
     await runAutoRollover();
+    const created = await ensureRecurringTasks();
+    if (created > 0) {
+      try {
+        await rescheduleAllNotifications();
+      } catch {
+        // Notifications are optional on web.
+      }
+    }
 
     const [all, storedHabits] = await Promise.all([
       taskRepository.getAll(),
@@ -184,6 +188,7 @@ export default function TodayScreen() {
     const day = todayISODate();
     const updated = await habitRepository.update(habit.id, toggleHabitDate(habit, day));
     if (updated) setHabits((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    await notify(() => scheduleHabitReminders());
   };
 
   const handleRolloverPrompt = (task: Task) => {
@@ -232,72 +237,26 @@ export default function TodayScreen() {
       });
   }, [todayTasks]);
 
-  const mitTasks = useMemo(() => {
-    return activeTasks.filter((t) => t.isMIT).slice(0, 3);
-  }, [activeTasks]);
-
   const scheduleConflicts = useMemo(() => findScheduleConflicts(todayTasks), [todayTasks]);
+  const focusableTasks = useMemo(
+    () => tasks.filter((task) => task.status !== 'done' && task.status !== 'cancelled'),
+    [tasks],
+  );
 
   const progress = todayTasks.length > 0
     ? (completedTasks.length / todayTasks.length) * 100
     : 0;
 
-  const timedTasks = useMemo(() => {
-    return activeTasks
-      .filter((t) => t.time)
-      .sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
-  }, [activeTasks]);
-
-  const untimedTasks = useMemo(() => {
-    return activeTasks.filter((t) => !t.time);
-  }, [activeTasks]);
-
-  // Suggest the task that deserves attention right now: MIT first, then
-  // priority, then anything due/overdue, then the quickest win.
-  const suggestedTask = useMemo(() => {
-    if (activeTasks.length === 0) return null;
-    const score = (task: Task) => {
-      let value = task.isMIT ? 100 : 0;
-      value += task.priority === 'high' ? 40 : task.priority === 'medium' ? 20 : 0;
-      if (task.time) {
-        const [h, m] = task.time.split(':').map(Number);
-        const due = h * 60 + (m || 0);
-        const now = new Date().getHours() * 60 + new Date().getMinutes();
-        if (due <= now) value += 30;
-        else if (due - now <= 120) value += 15;
-      }
-      value += Math.max(0, 20 - (task.estimatedMinutes ?? 20));
-      return value;
-    };
-    return [...activeTasks].sort((a, b) => score(b) - score(a))[0];
-  }, [activeTasks]);
-
   // Date strings are computed once per minute instead of on every render.
   const clock = useMemo(() => {
     const now = new Date();
     return {
-      hour: now.getHours(),
-      nowStr: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
       greeting: getGreeting(now.getHours(), language),
       dateDisplay: getFullDateString(now, language),
       hijriDisplay: settings?.showHijriDate ? getHijriDate(now) : null,
     };
   }, [language, settings?.showHijriDate, Math.floor(Date.now() / 60000)]);
-  const { hour: currentHour, nowStr, greeting, dateDisplay, hijriDisplay } = clock;
-
-  // Group once instead of filtering all timed tasks 24 times on every render.
-  const tasksByHour = useMemo(() => {
-    const groups = new Map<number, Task[]>();
-    for (const task of timedTasks) {
-      if (!task.time) continue;
-      const h = parseInt(task.time.split(':')[0], 10);
-      if (Number.isNaN(h)) continue;
-      const list = groups.get(h);
-      if (list) list.push(task);
-      else groups.set(h, [task]);
-    }
-    return groups;
-  }, [timedTasks]);
+  const { greeting, dateDisplay, hijriDisplay } = clock;
 
   const handleReorder = (task: Task, delta: number) => {
     const current = [...activeTasks];
@@ -330,7 +289,7 @@ export default function TodayScreen() {
         onPress={() => router.push(`/tasks/${task.id}`)}
         style={({ pressed }) => [
           styles.taskRow,
-          { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.85 : 1 },
+          { backgroundColor: theme.surfaceSecondary, opacity: pressed ? 0.85 : 1 },
         ]}
       >
         {reorderable && !isDone ? (
@@ -348,7 +307,7 @@ export default function TodayScreen() {
             { borderColor: isDone ? theme.success : color, backgroundColor: isDone ? theme.success : 'transparent' },
           ]}
         >
-          {isDone && <CheckCircle2 size={14} color="#FFFFFF" strokeWidth={3} />}
+          {isDone && <CheckCircle2 size={iconSize.sm} color={theme.text.inverse} strokeWidth={3} />}
         </Pressable>
 
         <View style={styles.taskContent}>
@@ -363,14 +322,14 @@ export default function TodayScreen() {
               {task.title}
             </Text>
             {task.isMIT && (
-              <Star size={14} color={theme.secondary[500]} fill={theme.secondary[500]} />
+              <Star size={iconSize.sm} color={theme.secondary[500]} fill={theme.secondary[500]} />
             )}
           </View>
 
           <View style={styles.taskMetaRow}>
             {task.time && (
               <View style={styles.taskTimeChip}>
-                <Clock size={11} color={theme.text.tertiary} />
+                <Clock size={iconSize.xs} color={theme.text.tertiary} />
                 <Text style={[styles.taskMetaText, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
                   {task.time}
                 </Text>
@@ -391,7 +350,7 @@ export default function TodayScreen() {
             )}
             {(scheduleConflicts[task.id]?.length ?? 0) > 0 && (
               <View style={[styles.taskConflictBadge, { backgroundColor: theme.warningSoft }]}>
-                <AlertTriangle size={11} color={theme.warning} />
+                <AlertTriangle size={iconSize.xs} color={theme.warning} />
                 <Text style={[styles.taskMetaText, { color: theme.warning, fontFamily: typography.fontFamilySemiBold }]}>
                   {t('tasks.scheduleConflict')}
                 </Text>
@@ -403,37 +362,13 @@ export default function TodayScreen() {
         {!isDone && (
           <Pressable hitSlop={8} onPress={() => handleToggleMIT(task)} style={styles.mitBtn}>
             {task.isMIT ? (
-              <Star size={18} color={theme.secondary[500]} fill={theme.secondary[500]} />
+              <Star size={iconSize.md} color={theme.secondary[500]} fill={theme.secondary[500]} />
             ) : (
-              <StarOff size={18} color={theme.text.tertiary} />
+              <StarOff size={iconSize.md} color={theme.text.tertiary} />
             )}
           </Pressable>
         )}
       </Pressable>
-    );
-  };
-
-  const renderTimelineHour = (hour: number) => {
-    const hourStr = `${String(hour).padStart(2, '0')}:00`;
-    const hourTasks = tasksByHour.get(hour);
-
-    if (!hourTasks || hourTasks.length === 0) return null;
-
-    const isPast = hour < currentHour;
-    const isNow = hour === currentHour;
-
-    return (
-      <View key={hour} style={styles.timelineHour}>
-        <View style={styles.timelineTimeCol}>
-          <View style={[styles.timelineDot, { backgroundColor: isNow ? theme.primary[500] : isPast ? theme.text.tertiary : theme.border }]} />
-          <Text style={[styles.timelineHourText, { color: isNow ? theme.primary[500] : theme.text.tertiary, fontFamily: isNow ? typography.fontFamilyBold : typography.fontFamily }]}>
-            {hourStr}
-          </Text>
-        </View>
-        <View style={styles.timelineTasks}>
-          {hourTasks.map((task) => renderTaskRow(task))}
-        </View>
-      </View>
     );
   };
 
@@ -445,6 +380,8 @@ export default function TodayScreen() {
   ) => (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={({ pressed }) => [
         styles.quickBtn,
         { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.85 : 1 },
@@ -465,11 +402,7 @@ export default function TodayScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
-        <View style={styles.loadingContainer}>
-          <Text style={{ color: theme.text.tertiary, fontFamily: typography.fontFamily }}>
-            {t('common.loading')}
-          </Text>
-        </View>
+        <LoadingState label={t('common.loading')} />
       </View>
     );
   }
@@ -508,17 +441,19 @@ export default function TodayScreen() {
             <Pressable
               onPress={() => router.push('/notifications')}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('notifications.title')}
               style={({ pressed }) => [
                 styles.bellBtn,
                 { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <Bell size={20} color={theme.text.secondary} />
+              <Bell size={iconSize.lg} color={theme.text.secondary} />
             </Pressable>
           </View>
 
           <View style={styles.heroBottom}>
-            <ProgressRing progress={progress} size={76} strokeWidth={7} />
+            <ProgressRing progress={progress} size={64} strokeWidth={6} />
             <View style={styles.heroStats}>
               <View style={styles.heroStatItem}>
                 <Text style={[styles.heroStatValue, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
@@ -553,119 +488,36 @@ export default function TodayScreen() {
         {/* Quick actions */}
         <View style={styles.quickBtnRow}>
           {renderQuickButton(
-            <Plus size={22} color={theme.primary[500]} />,
+            <Plus size={iconSize.xl} color={theme.primary[500]} />,
             t('today.quickAdd'),
             () => setShowQuickAdd(true),
             theme.primary[500],
           )}
           {renderQuickButton(
-            <Focus size={22} color={theme.accent[500]} />,
+            <Focus size={iconSize.xl} color={theme.accent[500]} />,
             t('today.startFocus'),
             () => setShowFocusPicker(true),
             theme.accent[500],
           )}
           {renderQuickButton(
-            <ClipboardList size={22} color={theme.secondary[500]} />,
+            <ClipboardList size={iconSize.xl} color={theme.secondary[500]} />,
             t('today.dailyReview'),
             () => router.push('/review'),
             theme.secondary[500],
           )}
-          {renderQuickButton(
-            <Bell size={22} color={theme.text.tertiary} />,
-            t('notifications.title'),
-            () => router.push('/notifications'),
-            theme.text.tertiary,
-          )}
         </View>
-
-        {/* Smart suggestion */}
-        {suggestedTask && (
-          <Pressable
-            onPress={() => router.push(`/tasks/${suggestedTask.id}`)}
-            style={({ pressed }) => [
-              styles.suggestionCard,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.primary[500] + '44',
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <View style={[styles.suggestionIcon, { backgroundColor: theme.primary[500] + '1F' }]}>
-              <Sparkles size={20} color={theme.primary[500]} />
-            </View>
-            <View style={styles.suggestionText}>
-              <Text style={[styles.suggestionLabel, { color: theme.primary[500], fontFamily: typography.fontFamilySemiBold }]}>
-                {t('today.suggestion')}
-              </Text>
-              <Text style={[styles.suggestionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]} numberOfLines={1}>
-                {suggestedTask.title}
-              </Text>
-              <Text style={[styles.suggestionDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                {t('today.suggestionDesc')}
-              </Text>
-            </View>
-            <View style={[styles.suggestionStart, { backgroundColor: theme.primary[500] }]}>
-              <Text style={[styles.suggestionStartText, { color: '#FFFFFF', fontFamily: typography.fontFamilySemiBold }]}>
-                {t('today.start')}
-              </Text>
-            </View>
-          </Pressable>
-        )}
-
-        {/* Most Important 3 */}
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionHeaderLeft}>
-            <Target size={18} color={theme.secondary[500]} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('today.mit')}
-            </Text>
-          </View>
-          <Text style={[styles.sectionDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-            {t('today.mitDesc')}
-          </Text>
-        </View>
-
-        {mitTasks.length > 0 ? (
-          <Card style={styles.mitCard}>
-            {mitTasks.map((task, i) => (
-              <View key={task.id}>
-                {i > 0 && <View style={[styles.taskDivider, { backgroundColor: theme.border }]} />}
-                {renderTaskRow(task)}
-              </View>
-            ))}
-          </Card>
-        ) : (
-          <Card style={styles.mitEmptyCard}>
-            <View style={styles.mitEmptyContent}>
-              <StarOff size={28} color={theme.text.tertiary} />
-              <Text style={[styles.mitEmptyText, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                {t('today.noMIT')}
-              </Text>
-              <Text style={[styles.mitEmptyHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                {t('today.markMIT')}
-              </Text>
-            </View>
-          </Card>
-        )}
 
         {/* Quick habit check-in */}
         {dueHabits.length > 0 ? (
-          <View style={[styles.habitCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.habitHeader}>
-              <CheckCircle2 size={18} color={theme.success} />
-              <View style={styles.habitHeaderText}>
-                <Text style={[styles.sectionTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                  {t('today.habits')}
-                </Text>
-                <Text style={[styles.sectionDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                  {t('today.habitsHint')}
-                </Text>
-              </View>
-              <Text style={[styles.habitCount, { color: theme.success, fontFamily: typography.fontFamilySemiBold }]}>
-                {dueHabits.filter((habit) => isHabitCompletedOn(habit, today)).length}/{dueHabits.length}
-              </Text>
-            </View>
+          <Card style={styles.habitCard}>
+            <SectionHeader
+              icon={<CheckCircle2 size={iconSize.md} color={theme.success} />}
+              title={t('today.habits')}
+              description={t('today.habitsHint')}
+              count={`${dueHabits.filter((habit) => isHabitCompletedOn(habit, today)).length}/${dueHabits.length}`}
+              color={theme.success}
+              style={styles.sectionSpacing}
+            />
             <View style={styles.habitChips}>
               {dueHabits.map((habit) => {
                 const done = isHabitCompletedOn(habit, today);
@@ -689,7 +541,7 @@ export default function TodayScreen() {
                       styles.habitCheck,
                       { borderColor: done ? color : theme.text.tertiary, backgroundColor: done ? color : 'transparent' },
                     ]}>
-                      {done ? <Check size={11} color="#FFFFFF" strokeWidth={3} /> : null}
+                      {done ? <Check size={iconSize.xs} color={theme.text.inverse} strokeWidth={3} /> : null}
                     </View>
                     <Text
                       numberOfLines={1}
@@ -704,105 +556,70 @@ export default function TodayScreen() {
                 );
               })}
             </View>
-          </View>
+          </Card>
         ) : null}
 
-        {/* View Toggle */}
-        <View style={styles.viewToggleRow}>
-          <Pressable
-            onPress={() => setViewMode('timeline')}
-            style={[
-              styles.viewToggleBtn,
-              { backgroundColor: viewMode === 'timeline' ? theme.primary[500] : 'transparent', borderColor: viewMode === 'timeline' ? theme.primary[500] : theme.border },
-            ]}
-          >
-            <Clock size={16} color={viewMode === 'timeline' ? '#FFFFFF' : theme.text.secondary} />
-            <Text style={[styles.viewToggleText, { color: viewMode === 'timeline' ? '#FFFFFF' : theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
-              {t('today.timeline')}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setViewMode('list')}
-            style={[
-              styles.viewToggleBtn,
-              { backgroundColor: viewMode === 'list' ? theme.primary[500] : 'transparent', borderColor: viewMode === 'list' ? theme.primary[500] : theme.border },
-            ]}
-          >
-            <Calendar size={16} color={viewMode === 'list' ? '#FFFFFF' : theme.text.secondary} />
-            <Text style={[styles.viewToggleText, { color: viewMode === 'list' ? '#FFFFFF' : theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
-              {t('today.list')}
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Tasks Display */}
-        {activeTasks.length === 0 && completedTasks.length === 0 ? (
-          <EmptyState
-            icon={<Calendar size={36} color={theme.text.tertiary} />}
-            title={t('today.noTasks')}
-            description={t('today.noTasksDesc')}
-            action={
-              <Button variant="primary" icon={<Plus size={18} color="#FFFFFF" />} onPress={() => setShowQuickAdd(true)}>
-                {t('today.addTask')}
-              </Button>
-            }
+        {/* Today's plan */}
+        <Card style={styles.planCard}>
+          <SectionHeader
+            icon={<ClipboardList size={iconSize.md} color={theme.primary[500]} />}
+            title={t('today.tasksCount')}
+            description={activeTasks.length > 1 ? t('today.reorderHint') : undefined}
+            count={activeTasks.length}
+            color={theme.primary[500]}
+            style={styles.sectionSpacing}
           />
-        ) : viewMode === 'timeline' ? (
-          <View style={styles.timelineContainer}>
-            {/* Now indicator */}
-            <View style={styles.nowIndicator}>
-              <View style={[styles.nowLine, { backgroundColor: theme.primary[500] }]} />
-              <Text style={[styles.nowText, { color: theme.primary[500], fontFamily: typography.fontFamilyBold }]}>
-                {t('today.now')} {nowStr}
-              </Text>
+
+          {activeTasks.length === 0 && completedTasks.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<CheckCircle2 size={iconSize.hero} color={theme.text.tertiary} />}
+              title={t('today.noTasks')}
+              description={t('today.noTasksDesc')}
+              action={
+                <Button
+                  variant="primary"
+                  icon={<Plus size={iconSize.md} color={theme.text.inverse} />}
+                  onPress={() => setShowQuickAdd(true)}
+                >
+                  {t('today.addTask')}
+                </Button>
+              }
+            />
+          ) : (
+            <View style={styles.planList}>
+              {activeTasks.map((task) => renderTaskRow(task, true))}
+
+              {completedTasks.length > 0 ? (
+                <>
+                  <Pressable
+                    onPress={() => setShowCompleted((value) => !value)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('review.completed')}
+                    accessibilityState={{ expanded: showCompleted }}
+                    style={styles.completedToggle}
+                  >
+                    <CheckCircle2 size={iconSize.md} color={theme.success} />
+                    <Text
+                      style={[
+                        styles.completedToggleText,
+                        { color: theme.success, fontFamily: typography.fontFamilySemiBold },
+                      ]}
+                    >
+                      {t('review.completed')} ({completedTasks.length})
+                    </Text>
+                    <ChevronDown
+                      size={iconSize.md}
+                      color={theme.success}
+                      style={{ transform: [{ rotate: showCompleted ? '180deg' : '0deg' }] }}
+                    />
+                  </Pressable>
+                  {showCompleted ? completedTasks.map((task) => renderTaskRow(task)) : null}
+                </>
+              ) : null}
             </View>
-
-            {timedTasks.length > 0 ? (
-              Array.from({ length: 24 }, (_, h) => renderTimelineHour(h))
-            ) : (
-              <Text style={[styles.noTimeText, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                {t('today.noTimeTasks')}
-              </Text>
-            )}
-
-            {/* Untimed tasks */}
-            {untimedTasks.length > 0 && (
-              <View style={styles.untimedSection}>
-                <Text style={[styles.untimedLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
-                  {t('today.allDay')}
-                </Text>
-                {untimedTasks.map((task) => renderTaskRow(task))}
-              </View>
-            )}
-
-            {/* Completed tasks */}
-            {completedTasks.length > 0 && (
-              <View style={styles.untimedSection}>
-                <Text style={[styles.untimedLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
-                  {t('review.completed')} ({completedTasks.length})
-                </Text>
-                {completedTasks.map((task) => renderTaskRow(task))}
-              </View>
-            )}
-          </View>
-        ) : (
-          <View style={styles.listContainer}>
-            {activeTasks.length > 1 && (
-              <Text style={[styles.reorderHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                {t('today.reorderHint')}
-              </Text>
-            )}
-            {activeTasks.map((task) => renderTaskRow(task, true))}
-            {completedTasks.length > 0 && (
-              <View style={styles.untimedSection}>
-                <Text style={[styles.untimedLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
-                  {t('review.completed')} ({completedTasks.length})
-                </Text>
-                {completedTasks.map((task) => renderTaskRow(task))}
-              </View>
-            )}
-          </View>
-        )}
+          )}
+        </Card>
 
         {/* Planner link */}
         <Pressable
@@ -813,37 +630,18 @@ export default function TodayScreen() {
           ]}
         >
           <View style={styles.plannerLinkLeft}>
-            <CalendarDays size={20} color={theme.primary[500]} />
+            <CalendarDays size={iconSize.lg} color={theme.primary[500]} />
             <Text style={[styles.plannerLinkText, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
               {t('planner.title')}
             </Text>
           </View>
           {isRTL
-            ? <ChevronLeft size={20} color={theme.text.tertiary} />
-            : <ChevronRight size={20} color={theme.text.tertiary} />}
-        </Pressable>
-
-        {/* Stats shortcut */}
-        <Pressable
-          onPress={() => router.push('/stats')}
-          style={({ pressed }) => [
-            styles.plannerLink,
-            { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.85 : 1 },
-          ]}
-        >
-          <View style={styles.plannerLinkLeft}>
-            <BarChart3 size={20} color={theme.success} />
-            <Text style={[styles.plannerLinkText, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
-              {t('stats.title')}
-            </Text>
-          </View>
-          {isRTL
-            ? <ChevronLeft size={20} color={theme.text.tertiary} />
-            : <ChevronRight size={20} color={theme.text.tertiary} />}
+            ? <ChevronLeft size={iconSize.lg} color={theme.text.tertiary} />
+            : <ChevronRight size={iconSize.lg} color={theme.text.tertiary} />}
         </Pressable>
       </ScrollView>
 
-      <FAB onPress={() => setShowQuickAdd(true)} bottom={28} icon={<Plus size={26} color="#FFFFFF" strokeWidth={2.5} />} />
+      <FAB onPress={() => setShowQuickAdd(true)} />
 
       <QuickAddModal
         visible={showQuickAdd}
@@ -862,7 +660,7 @@ export default function TodayScreen() {
       <FocusTaskPickerModal
         visible={showFocusPicker}
         onClose={() => setShowFocusPicker(false)}
-        tasks={tasks.filter((task) => task.status !== 'done' && task.status !== 'cancelled')}
+        tasks={focusableTasks}
         onSelect={(task) => router.push(`/tasks/${task.id}`)}
       />
     </View>
@@ -884,7 +682,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.md,
     paddingTop: spacing.md + 4,
-    paddingBottom: 112,
+    paddingBottom: bottomSpace.fab,
   },
   heroCard: {
     marginBottom: spacing.sm,
@@ -895,22 +693,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   heroGreeting: {
     flex: 1,
     gap: 1,
   },
   greeting: {
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: typography.sizes.xl,
+    lineHeight: typography.sizes.xl * typography.lineHeights.tight,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: typography.sizes.md,
   },
   hijriText: {
-    fontSize: 12,
-    marginTop: 1,
+    fontSize: typography.sizes.xs,
+    marginTop: spacing.xs * 0.25,
   },
   bellBtn: {
     width: 36,
@@ -940,11 +738,11 @@ const styles = StyleSheet.create({
     height: 30,
   },
   heroStatValue: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: typography.sizes.lg,
+    lineHeight: typography.sizes.lg * typography.lineHeights.tight,
   },
   heroStatLabel: {
-    fontSize: 11,
+    fontSize: typography.sizes.xs,
     textAlign: 'center',
   },
   quickBtnRow: {
@@ -955,8 +753,8 @@ const styles = StyleSheet.create({
   quickBtn: {
     flex: 1,
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: spacing.sm + 2,
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
     paddingHorizontal: 2,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -969,65 +767,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   quickBtnLabel: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: typography.sizes.xs,
+    lineHeight: typography.sizes.xs * typography.lineHeights.tight,
     textAlign: 'center',
   },
-  suggestionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1.5,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  suggestionIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  suggestionText: { flex: 1, gap: 2 },
-  suggestionLabel: { fontSize: typography.sizes.xs },
-  suggestionTitle: { fontSize: typography.sizes.md },
-  suggestionDesc: { fontSize: typography.sizes.xs },
-  suggestionStart: {
-    paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-  },
-  suggestionStartText: { fontSize: typography.sizes.sm },
-  sectionHeader: {
-    gap: 2,
+  sectionSpacing: {
     marginBottom: spacing.sm,
   },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  sectionTitle: {
-    fontSize: 16,
-  },
-  sectionDesc: {
-    fontSize: 12,
-  },
   habitCard: {
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
-  habitHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  habitHeaderText: { flex: 1, gap: 2 },
-  habitCount: { fontSize: typography.sizes.sm },
   habitChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1052,104 +802,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   habitChipText: { fontSize: typography.sizes.xs, flexShrink: 1 },
-  mitCard: {
+  planCard: {
     marginBottom: spacing.md,
-    paddingVertical: 2,
-    paddingHorizontal: spacing.sm,
-  },
-  mitEmptyCard: {
-    marginBottom: spacing.md,
-  },
-  mitEmptyContent: {
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-  },
-  mitEmptyText: {
-    fontSize: typography.sizes.sm,
-  },
-  mitEmptyHint: {
-    fontSize: typography.sizes.xs,
-  },
-  taskDivider: {
-    height: 1,
-    marginVertical: 2,
-  },
-  viewToggleRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  viewToggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm + 2,
-    borderWidth: 1,
-  },
-  viewToggleText: {
-    fontSize: typography.sizes.sm,
-  },
-  timelineContainer: {
-    marginBottom: spacing.md,
-  },
-  nowIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
   },
-  nowLine: {
-    flex: 1,
-    height: 1.5,
-    borderRadius: 1,
-  },
-  nowText: {
-    fontSize: typography.sizes.xs,
-  },
-  timelineHour: {
-    flexDirection: 'row',
-    marginBottom: spacing.xs,
-  },
-  timelineTimeCol: {
-    width: 44,
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-  },
-  timelineDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginBottom: 3,
-  },
-  timelineHourText: {
-    fontSize: typography.sizes.xs,
-  },
-  timelineTasks: {
-    flex: 1,
+  planList: {
     gap: spacing.xs,
+  },
+  completedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  completedToggleText: {
+    flex: 1,
+    fontSize: typography.sizes.sm,
   },
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderRadius: radius.sm + 2,
-    borderWidth: 1,
+    borderRadius: radius.md,
   },
   dragHandle: {
     paddingVertical: 8,
     paddingHorizontal: 2,
     justifyContent: 'center',
-  },
-  reorderHint: {
-    fontSize: typography.sizes.xs,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
   },
   checkbox: {
     width: 18,
@@ -1170,7 +852,7 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.sizes.sm,
   },
   taskMetaRow: {
     flexDirection: 'row',
@@ -1184,7 +866,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   taskMetaText: {
-    fontSize: 11,
+    fontSize: typography.sizes.xs,
   },
   taskCatChip: {
     flexDirection: 'row',
@@ -1213,26 +895,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   rolloverText: {
-    fontSize: 11,
+    fontSize: typography.sizes.xs,
   },
   mitBtn: {
     padding: 2,
-  },
-  noTimeText: {
-    fontSize: typography.sizes.sm,
-    textAlign: 'center',
-    paddingVertical: spacing.lg,
-  },
-  untimedSection: {
-    marginTop: spacing.md,
-    gap: spacing.xs,
-  },
-  untimedLabel: {
-    fontSize: typography.sizes.sm,
-    marginBottom: 2,
-  },
-  listContainer: {
-    gap: spacing.xs,
   },
   plannerLink: {
     flexDirection: 'row',

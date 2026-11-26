@@ -9,11 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Plus, X, Check, Trash2, Clock, Calendar, Tag as TagIcon, Repeat, StickyNote, ListChecks, BellRing, Volume2 } from 'lucide-react-native';
+import { Plus, X, Check, Trash2, Calendar, Tag as TagIcon, Repeat, StickyNote, ListChecks, BellRing, Volume2 } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
 import { ModalSheet } from './ModalSheet';
+import { TimePickerField } from './TimePickerField';
 import { Button } from './Button';
 import { Chip } from './Chip';
 import { Input } from './Input';
@@ -247,20 +248,13 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
               </View>
             </View>
             <View style={styles.flex1}>
-              <Text style={[styles.fieldLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
-                {t('tasks.field.time')}
-              </Text>
-              <View style={[styles.dateInput, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderRadius: radius.md }]}>
-                <Clock size={18} color={theme.text.tertiary} style={{ marginEnd: spacing.sm }} />
-                <TextInput
-                  value={task.time ?? ''}
-                  onChangeText={(v) => update({ time: v })}
-                  placeholder="HH:mm"
-                  placeholderTextColor={theme.text.tertiary}
-                  keyboardType="numbers-and-punctuation"
-                  style={[styles.textInput, { color: theme.text.primary, fontFamily: typography.fontFamily }]}
-                />
-              </View>
+              <TimePickerField
+                label={t('tasks.field.time')}
+                value={task.time ?? ''}
+                onChange={(next) => update({ time: next || undefined })}
+                allowClear
+                compact
+              />
             </View>
           </View>
 

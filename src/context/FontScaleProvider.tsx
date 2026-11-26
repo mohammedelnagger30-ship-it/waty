@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PixelRatio, View } from 'react-native';
 import { settingsRepository } from '@/src/storage';
 
@@ -60,33 +60,44 @@ export function FontScaleProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
 
-  const setSimpleModeEnabled = (value: boolean) => {
+  const setSimpleModeEnabled = useCallback((value: boolean) => {
     setSimpleModeEnabledState(value);
     applyGlobalFontScaling(value, value ? undefined : 1.0);
     settingsRepository.patch({ simpleModeEnabled: value }).catch(() => {});
-  };
+  }, []);
 
-  const setFontScaleMultiplier = (value: number) => {
+  const setFontScaleMultiplier = useCallback((value: number) => {
     setFontScaleMultiplierState(value);
     if (!simpleModeEnabled) {
       globalThis.__MAX_FONT_SIZE_MULTIPLIER__ = value;
     }
     settingsRepository.patch({ fontScaleMultiplier: value }).catch(() => {});
-  };
+  }, [simpleModeEnabled]);
 
   const isSystemScaleDetected = systemFontScale > 1.15;
 
+  // Stable value: a settings load must not re-render every screen in the app.
+  const value = useMemo(
+    () => ({
+      simpleModeEnabled,
+      setSimpleModeEnabled,
+      systemFontScale,
+      isSystemScaleDetected,
+      fontScaleMultiplier,
+      setFontScaleMultiplier,
+    }),
+    [
+      simpleModeEnabled,
+      setSimpleModeEnabled,
+      systemFontScale,
+      isSystemScaleDetected,
+      fontScaleMultiplier,
+      setFontScaleMultiplier,
+    ],
+  );
+
   return (
-    <FontScaleContext.Provider
-      value={{
-        simpleModeEnabled,
-        setSimpleModeEnabled,
-        systemFontScale,
-        isSystemScaleDetected,
-        fontScaleMultiplier,
-        setFontScaleMultiplier,
-      }}
-    >
+    <FontScaleContext.Provider value={value}>
       <View style={{ flex: 1 }} key={`${String(simpleModeEnabled)}-${fontScaleMultiplier}`}>
         {children}
       </View>

@@ -1,13 +1,15 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, StyleSheet, Text, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
-import { CheckSquare, Plus, Calendar, ListChecks, X, Undo2, AlertTriangle, GitBranch, Zap, Check, ChevronRight } from 'lucide-react-native';
+import { CheckSquare, Calendar, ListChecks, X, Undo2, AlertTriangle, GitBranch, Zap, Check, ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { EmptyState } from '@/src/components/EmptyState';
+import { Button } from '@/src/components/Button';
+import { LoadingState } from '@/src/components/LoadingState';
 import { FAB } from '@/src/components/FAB';
 import { TaskCard } from '@/src/components/TaskCard';
 import { PriorityMatrix } from '@/src/components/PriorityMatrix';
@@ -50,6 +52,15 @@ const defaultFilters: FilterOptions = {
   status: 'all',
 };
 
+// Notification failures must never abort a create/delete or leave stale data.
+async function notify(work: () => Promise<unknown>): Promise<void> {
+  try {
+    await work();
+  } catch {
+    // best-effort only
+  }
+}
+
 export default function TasksScreen() {
   const { theme } = useTheme();
   const { t } = useI18n();
@@ -80,39 +91,33 @@ export default function TasksScreen() {
   // Otherwise a task created/deleted on another screen stays stale here.
   useFocusEffect(useCallback(() => { void loadTasks(); }, [loadTasks]));
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    loadTasks();
-  };
+    void loadTasks();
+  }, [loadTasks]);
 
-  // Storage is the source of truth. Notification failures must never abort a
-  // create/delete or leave the list showing a stale task.
-  const notify = async (work: () => Promise<unknown>) => {
-    try { await work(); } catch { /* notifications are best-effort */ }
-  };
-
-  const handleAddTask = async (task: Task) => {
+  const handleAddTask = useCallback(async (task: Task) => {
     await taskRepository.create(task);
     await notify(() => scheduleTaskReminders(task));
     await loadTasks();
-  };
+  }, [loadTasks]);
 
-  const handleUpdateTask = async (task: Task) => {
+  const handleUpdateTask = useCallback(async (task: Task) => {
     await taskRepository.update(task.id, task);
     await notify(() => rescheduleTaskReminders(task));
     await loadTasks();
-  };
+  }, [loadTasks]);
 
-  const handleDeleteTask = async (id: string) => {
+  const handleDeleteTask = useCallback(async (id: string) => {
     const removed = tasks.find((task) => task.id === id);
     await taskRepository.delete(id);
     await notify(() => cancelTaskReminders(id));
     setUndoTasks(removed ? [removed] : []);
     setSelectedIds((current) => current.filter((taskId) => taskId !== id));
     await loadTasks();
-  };
+  }, [tasks, loadTasks]);
 
-  const handleUndo = async () => {
+  const handleUndo = useCallback(async () => {
     if (!undoTasks.length) return;
     const restored = undoTasks;
     setUndoTasks([]);
@@ -121,21 +126,21 @@ export default function TasksScreen() {
       await notify(() => scheduleTaskReminders(task));
     }
     await loadTasks();
-  };
+  }, [undoTasks, loadTasks]);
 
-  const toggleSelect = (task: Task) => {
+  const toggleSelect = useCallback((task: Task) => {
     haptics.selection();
     setSelectedIds((current) =>
       current.includes(task.id) ? current.filter((id) => id !== task.id) : [...current, task.id],
     );
-  };
+  }, []);
 
-  const exitSelection = () => {
+  const exitSelection = useCallback(() => {
     setSelectionMode(false);
     setSelectedIds([]);
-  };
+  }, []);
 
-  const handleBulkComplete = async () => {
+  const handleBulkComplete = useCallback(async () => {
     const chosen = tasks.filter((task) => selectedIds.includes(task.id) && task.status !== 'done');
     const blocked = chosen.filter((task) => getUnmetDependencies(task, tasks).length > 0);
     const ready = chosen.filter((task) => !getUnmetDependencies(task, tasks).length);
@@ -153,9 +158,9 @@ export default function TasksScreen() {
     if (blocked.length) {
       Alert.alert(t('tasks.blockedTitle'), `${t('tasks.blockedCount')}: ${blocked.length}`);
     }
-  };
+  }, [tasks, selectedIds, exitSelection, loadTasks, t]);
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = useCallback(async () => {
     const removed = tasks.filter((task) => selectedIds.includes(task.id));
     for (const task of removed) {
       await taskRepository.delete(task.id);
@@ -164,9 +169,9 @@ export default function TasksScreen() {
     setUndoTasks(removed);
     exitSelection();
     await loadTasks();
-  };
+  }, [tasks, selectedIds, exitSelection, loadTasks]);
 
-  const handleComplete = async (task: Task) => {
+  const handleComplete = useCallback(async (task: Task) => {
     const blockers = getUnmetDependencies(task, tasks);
     if (blockers.length) {
       Alert.alert(t('tasks.blockedTitle'), `${t('tasks.blockedMsg')} ${blockers.map((item) => item.title).join('، ')}`);
@@ -180,9 +185,9 @@ export default function TasksScreen() {
     await taskRepository.update(task.id, completed);
     await notify(() => cancelTaskReminders(task.id));
     await loadTasks();
-  };
+  }, [tasks, loadTasks, t]);
 
-  const handleFixConflicts = async () => {
+  const handleFixConflicts = useCallback(async () => {
     const fixes = resolveScheduleConflicts(tasks);
     if (!fixes.length) return;
     for (const fix of fixes) {
@@ -193,9 +198,9 @@ export default function TasksScreen() {
     }
     await loadTasks();
     Alert.alert(t('tasks.conflictsFixed'), `${t('tasks.fixedCount')}: ${fixes.length}`);
-  };
+  }, [tasks, loadTasks, t]);
 
-  const handlePostpone = async (task: Task) => {
+  const handlePostpone = useCallback(async (task: Task) => {
     const next = addDays(task.date, 1);
     const updated = await taskRepository.update(task.id, {
       status: 'postponed' as TaskStatus,
@@ -204,35 +209,39 @@ export default function TasksScreen() {
     });
     if (updated) await notify(() => rescheduleTaskReminders(updated));
     await loadTasks();
-  };
+  }, [loadTasks]);
 
-  const handleDeleteConfirm = (task: Task) => {
+  const handleDeleteConfirm = useCallback((task: Task) => {
     Alert.alert(t('tasks.confirmDelete'), t('tasks.confirmDeleteMsg'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
         style: 'destructive',
-        onPress: () => handleDeleteTask(task.id),
+        onPress: () => { void handleDeleteTask(task.id); },
       },
     ]);
-  };
+  }, [t, handleDeleteTask]);
 
-  const handleCardPress = (task: Task) => {
+  const handleCardPress = useCallback((task: Task) => {
     router.push(`/tasks/${task.id}`);
-  };
+  }, [router]);
 
-  const handleEditPress = (task: Task) => {
+  const handleEditPress = useCallback((task: Task) => {
     setInitialTask(null);
     setEditingTask(task);
     setShowForm(true);
-  };
+  }, []);
 
-  const handleMoreDetails = (title: string, date: string, time: string, priority: TaskPriority) => {
+  const handleMoreDetails = useCallback((title: string, date: string, time: string, priority: TaskPriority) => {
     setShowQuickAdd(false);
     setEditingTask(null);
     setInitialTask(createDefaultTask({ title, date, time: time || undefined, priority }));
     setShowForm(true);
-  };
+  }, []);
+
+  const handleTagPress = useCallback((tag: string) => {
+    setFilters((current) => ({ ...current, search: tag }));
+  }, []);
 
   const filteredTasks = useMemo(() => {
     const filtered = filterTasks(tasks, filters);
@@ -246,8 +255,17 @@ export default function TasksScreen() {
   const impactTasks = useMemo(() => findHighImpactTasks(tasks), [tasks]);
   const quickWins = useMemo(() => findQuickWins(tasks), [tasks]);
 
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const hasAnyTasks = tasks.length > 0;
   const hasFilteredResults = filteredTasks.length > 0;
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LoadingState label={t('common.loading')} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -257,8 +275,13 @@ export default function TasksScreen() {
         right={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             {selectionMode ? (
-              <Pressable onPress={exitSelection} style={{ padding: 8 }}>
-                <X size={22} color={theme.text.primary} />
+              <Pressable
+                onPress={exitSelection}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.cancel')}
+                style={styles.iconButton}
+              >
+                <X size={iconSize.xl} color={theme.text.primary} />
               </Pressable>
             ) : (
               <>
@@ -267,12 +290,19 @@ export default function TasksScreen() {
                     haptics.selection();
                     setSelectionMode(true);
                   }}
-                  style={{ padding: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tasks.bulkComplete')}
+                  style={styles.iconButton}
                 >
-                  <ListChecks size={22} color={theme.primary[500]} />
+                  <ListChecks size={iconSize.xl} color={theme.primary[500]} />
                 </Pressable>
-                <Pressable onPress={() => router.push('/calendar')} style={{ padding: 8 }}>
-                  <Calendar size={22} color={theme.primary[500]} />
+                <Pressable
+                  onPress={() => router.push('/calendar')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('calendar.title')}
+                  style={styles.iconButton}
+                >
+                  <Calendar size={iconSize.xl} color={theme.primary[500]} />
                 </Pressable>
               </>
             )}
@@ -410,15 +440,24 @@ export default function TasksScreen() {
 
         {!hasAnyTasks ? (
           <EmptyState
-            icon={<CheckSquare size={36} color={theme.text.tertiary} />}
+            icon={<CheckSquare size={iconSize.hero} color={theme.text.tertiary} />}
             title={t('tasks.noTasks')}
             description={t('tasks.noTasksDesc')}
           />
         ) : !hasFilteredResults ? (
           <EmptyState
-            icon={<CheckSquare size={36} color={theme.text.tertiary} />}
-            title={t('tasks.noTasks')}
-            description={t('tasks.noTasksDesc')}
+            icon={<CheckSquare size={iconSize.hero} color={theme.text.tertiary} />}
+            title={t('tasks.noResults')}
+            description={t('tasks.noResultsDesc')}
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onPress={() => setFilters(defaultFilters)}
+              >
+                {t('tasks.clearFilters')}
+              </Button>
+            }
           />
         ) : view === 'matrix' ? (
           <PriorityMatrix
@@ -428,7 +467,7 @@ export default function TasksScreen() {
           />
         ) : grouped.length === 0 ? (
           <EmptyState
-            icon={<CheckSquare size={36} color={theme.text.tertiary} />}
+            icon={<CheckSquare size={iconSize.hero} color={theme.text.tertiary} />}
             title={t('tasks.noTasks')}
             description={t('tasks.noTasksDesc')}
           />
@@ -469,9 +508,9 @@ export default function TasksScreen() {
                   onDelete={handleDeleteConfirm}
                   conflictCount={scheduleConflicts[task.id]?.length ?? 0}
                   selectionMode={selectionMode}
-                  selected={selectedIds.includes(task.id)}
+                  selected={selectedIdSet.has(task.id)}
                   onToggleSelect={toggleSelect}
-                  onTagPress={(tag) => setFilters((current) => ({ ...current, search: tag }))}
+                  onTagPress={handleTagPress}
                 />
               ))}
             </View>
@@ -484,7 +523,11 @@ export default function TasksScreen() {
           onPress={handleUndo}
           style={[
             styles.undoBar,
-            { backgroundColor: theme.surface, borderColor: theme.border },
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              shadowColor: theme.shadow.colorStrong,
+            },
           ]}
         >
           <Undo2 size={18} color={theme.primary[500]} />
@@ -498,7 +541,16 @@ export default function TasksScreen() {
       ) : null}
 
       {selectionMode ? (
-        <View style={[styles.bulkBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.bulkBar,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              shadowColor: theme.shadow.colorStrong,
+            },
+          ]}
+        >
           <Text style={[styles.bulkCount, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
             {`${t('tasks.selected')} ${selectedIds.length}`}
           </Text>
@@ -522,7 +574,7 @@ export default function TasksScreen() {
           </View>
         </View>
       ) : (
-        <FAB onPress={() => setShowQuickAdd(true)} bottom={28} icon={<Plus size={28} color="#FFFFFF" strokeWidth={2.5} />} />
+        <FAB onPress={() => setShowQuickAdd(true)} />
       )}
 
       <QuickAddModal
@@ -549,6 +601,9 @@ export default function TasksScreen() {
 }
 
 const styles = StyleSheet.create({
+  iconButton: {
+    padding: spacing.sm,
+  },
   container: {
     flex: 1,
   },
@@ -582,7 +637,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: 120,
+    paddingBottom: bottomSpace.fab,
   },
   insightCard: {
     borderWidth: 1,
@@ -664,14 +719,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.lg,
     right: spacing.lg,
-    bottom: 96,
+    bottom: bottomSpace.tab,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
-    shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 4,
@@ -692,7 +746,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     gap: spacing.sm,
-    shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 4,

@@ -5,6 +5,7 @@ import { Task, TaskReminder, ReminderOffset, NotificationSettings, AlarmSoundId 
 import { taskRepository, reminderRepository, notificationSettingsRepository, habitRepository } from '@/src/storage';
 import { generateId } from '@/src/storage/repository';
 import { completeRepeatingTask, getUnmetDependencies } from '@/src/utils/taskUtils';
+import { isHabitCompletedOn, isHabitDueOn } from '@/src/utils/habitUtils';
 import { ALARM_PRESETS, getAlarmPreset } from './alarmOptions';
 
 // --- Notification channel setup ---
@@ -18,6 +19,62 @@ export const NOTIF_CHANNELS = {
   silentVibrate: 'silent_vibrate',
   silent: 'silent',
 } as const;
+
+/** Parses HH:mm defensively so a corrupted value can never schedule NaN. */
+function parseClock(value: string | undefined): { hour: number; minute: number } | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec((value ?? '').trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return { hour, minute };
+}
+
+function formatClock(hour: number, minute: number): string {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+// expo-notifications native APIs are unavailable on web. The browser build is
+// used for QA, so keep scheduling best-effort there instead of throwing.
+const NOTIFICATIONS_AVAILABLE = Platform.OS !== 'web';
+
+async function cancelNotification(id: string): Promise<void> {
+  if (!NOTIFICATIONS_AVAILABLE) return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(id);
+  } catch {
+    // Already fired or removed by the OS.
+  }
+}
+
+async function cancelAllScheduled(): Promise<void> {
+  if (!NOTIFICATIONS_AVAILABLE) return;
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch {
+    // No scheduled notifications to clear.
+  }
+}
+
+type ScheduleRequest = Parameters<typeof Notifications.scheduleNotificationAsync>[0];
+
+async function scheduleNotification(request: ScheduleRequest): Promise<string | null> {
+  if (!NOTIFICATIONS_AVAILABLE) return null;
+  try {
+    return await Notifications.scheduleNotificationAsync(request);
+  } catch {
+    return null;
+  }
+}
+
+async function getAllScheduled(): Promise<Notifications.NotificationRequest[]> {
+  if (!NOTIFICATIONS_AVAILABLE) return [];
+  try {
+    return await Notifications.getAllScheduledNotificationsAsync();
+  } catch {
+    return [];
+  }
+}
 
 export async function setupNotificationChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -96,7 +153,7 @@ export async function previewAlarm(soundId?: AlarmSoundId): Promise<void> {
   await setupNotificationChannels();
   const preset = getAlarmPreset(soundId);
   const routing = getChannelForReminder('at_time', preset.id, true, true);
-  await Notifications.scheduleNotificationAsync({
+  await scheduleNotification({
     content: {
       title: `تجربة المنبه: ${preset.nameAr}`,
       body: 'كدة هيطلع المنبه عند موعد المهمة 🔔',
@@ -114,6 +171,7 @@ export async function previewAlarm(soundId?: AlarmSoundId): Promise<void> {
 // --- Permission handling ---
 
 export async function requestNotificationPermissions(): Promise<boolean> {
+  if (!NOTIFICATIONS_AVAILABLE) return false;
   const { status: existing } = await Notifications.getPermissionsAsync();
   let finalStatus = existing;
   if (existing !== 'granted') {
@@ -131,6 +189,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 // --- Notification action categories ---
 
 export async function registerNotificationCategories(): Promise<void> {
+  if (!NOTIFICATIONS_AVAILABLE) return;
   const completeAction: Notifications.NotificationAction = {
     identifier: 'complete',
     buttonTitle: 'تم',
@@ -167,13 +226,14 @@ export function isWithinQuietHours(
   quietStart: string,
   quietEnd: string,
 ): boolean {
-  const [tH, tM] = timeStr.split(':').map(Number);
-  const [sH, sM] = quietStart.split(':').map(Number);
-  const [eH, eM] = quietEnd.split(':').map(Number);
+  const time = parseClock(timeStr);
+  const start = parseClock(quietStart);
+  const end = parseClock(quietEnd);
+  if (!time || !start || !end) return false;
 
-  const tMinutes = tH * 60 + tM;
-  const sMinutes = sH * 60 + sM;
-  const eMinutes = eH * 60 + eM;
+  const tMinutes = time.hour * 60 + time.minute;
+  const sMinutes = start.hour * 60 + start.minute;
+  const eMinutes = end.hour * 60 + end.minute;
 
   if (sMinutes < eMinutes) {
     return tMinutes >= sMinutes && tMinutes < eMinutes;
@@ -233,10 +293,11 @@ function getChannelForReminder(
 }
 
 function buildTriggerDate(task: Task, offsetMinutes: number): Date | null {
-  if (!task.time) return null;
-  const [h, m] = task.time.split(':').map(Number);
+  const clock = parseClock(task.time);
+  if (!clock) return null;
   const trigger = new Date(`${task.date}T00:00:00`);
-  trigger.setHours(h, m, 0, 0);
+  if (Number.isNaN(trigger.getTime())) return null;
+  trigger.setHours(clock.hour, clock.minute, 0, 0);
   trigger.setMinutes(trigger.getMinutes() - offsetMinutes);
   const now = new Date();
   if (trigger.getTime() <= now.getTime()) return null;
@@ -268,7 +329,7 @@ async function scheduleOneReminder(
   const notifSettings = settingsOverride ?? (await notificationSettingsRepository.getOrCreate());
   if (!notifSettings.enabled) return null;
 
-  const timeStr = `${triggerDate.getHours().toString().padStart(2, '0')}:${triggerDate.getMinutes().toString().padStart(2, '0')}`;
+  const timeStr = formatClock(triggerDate.getHours(), triggerDate.getMinutes());
   if (notifSettings.quietHoursEnabled) {
     if (isWithinQuietHours(timeStr, notifSettings.quietHoursStart, notifSettings.quietHoursEnd)) {
       return null;
@@ -289,7 +350,7 @@ async function scheduleOneReminder(
       ? Notifications.AndroidNotificationPriority.MAX
       : Notifications.AndroidNotificationPriority.DEFAULT;
 
-  const id = await Notifications.scheduleNotificationAsync({
+  const id = await scheduleNotification({
     content: {
       title: input.taskTitle,
       body: bodyText,
@@ -310,17 +371,40 @@ async function scheduleOneReminder(
 
 // --- Public API: schedule, cancel, reschedule ---
 
+async function cancelTaskRemindersInternal(taskId: string): Promise<void> {
+  const reminders = await reminderRepository.getAll();
+  const taskReminders = reminders.filter((r) => r.taskId === taskId);
+  for (const r of taskReminders) {
+    if (r.scheduledId) {
+      try {
+        await cancelNotification(r.scheduledId);
+      } catch {
+        // Already fired or removed by the OS.
+      }
+    }
+    await reminderRepository.delete(r.id);
+  }
+}
+
+export async function cancelTaskReminders(taskId: string): Promise<void> {
+  await cancelTaskRemindersInternal(taskId);
+  await refreshTaskDerivedNotifications();
+}
+
 export async function scheduleTaskReminders(task: Task): Promise<void> {
+  // Always clear old reminders first, even when the task is now done,
+  // untimed or notifications were switched off. This prevents phantom alarms.
+  await cancelTaskRemindersInternal(task.id);
+
   const notifSettings = await notificationSettingsRepository.getOrCreate();
-  if (!notifSettings.enabled) return;
-  if (task.status === 'done' || task.status === 'cancelled') return;
-  if (!task.time) return;
+  const inactive = task.status === 'done' || task.status === 'cancelled';
+  if (!notifSettings.enabled || inactive || !parseClock(task.time)) {
+    await refreshTaskDerivedNotifications();
+    return;
+  }
 
   // undefined = follow global defaults; an explicit [] means "no reminder".
   const offsets = task.reminderOffsets ?? notifSettings.defaultReminders;
-
-  // Remove existing reminders for this task
-  await cancelTaskReminders(task.id);
 
   for (const offset of offsets) {
     const reminder: TaskReminder = {
@@ -347,26 +431,16 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
       await reminderRepository.create(reminder);
     }
   }
-}
 
-export async function cancelTaskReminders(taskId: string): Promise<void> {
-  const reminders = await reminderRepository.getAll();
-  const taskReminders = reminders.filter((r) => r.taskId === taskId);
-  for (const r of taskReminders) {
-    if (r.scheduledId) {
-      await Notifications.cancelScheduledNotificationAsync(r.scheduledId);
-    }
-    await reminderRepository.delete(r.id);
-  }
+  await refreshTaskDerivedNotifications();
 }
 
 export async function rescheduleTaskReminders(task: Task): Promise<void> {
-  await cancelTaskReminders(task.id);
   await scheduleTaskReminders(task);
 }
 
 export async function cancelAllReminders(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await cancelAllScheduled();
   // One write instead of a full read-modify-write cycle per reminder.
   await reminderRepository.replaceAll([]);
 }
@@ -376,26 +450,48 @@ export async function cancelAllReminders(): Promise<void> {
 export async function scheduleMorningSummary(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
   if (!settings.enabled || !settings.morningSummaryEnabled) {
-    await Notifications.cancelScheduledNotificationAsync('morning_summary');
+    await cancelNotification('morning_summary');
     return;
   }
 
-  const [h, m] = settings.morningSummaryTime.split(':').map(Number);
-
-  const now = new Date();
-  const trigger = new Date();
-  trigger.setHours(h, m, 0, 0);
-  if (trigger.getTime() <= now.getTime()) {
-    trigger.setDate(trigger.getDate() + 1);
+  const clock = parseClock(settings.morningSummaryTime);
+  if (!clock) {
+    await cancelNotification('morning_summary');
+    return;
   }
+  const { hour: h, minute: m } = clock;
 
-  await Notifications.cancelScheduledNotificationAsync('morning_summary');
+  // The daily briefing should contain the user's actual plan, not a generic
+  // nudge — and it must disappear when the plan is empty.
+  const tasks = await taskRepository.getAll();
+  const today = localDateString(new Date());
+  const todaysTasks = tasks
+    .filter(
+      (task) =>
+        task.status !== 'done' &&
+        task.status !== 'cancelled' &&
+        task.date === today,
+    )
+    .sort((a, b) => (a.time ?? '99:99').localeCompare(b.time ?? '99:99'));
 
-  await Notifications.scheduleNotificationAsync({
+  await cancelNotification('morning_summary');
+  if (todaysTasks.length === 0) return;
+
+  const preview = todaysTasks
+    .slice(0, 3)
+    .map((task) => `• ${task.time ?? '--:--'} ${task.title}`)
+    .join('\n');
+  const extra = todaysTasks.length > 3 ? `\nو${todaysTasks.length - 3} مهام أخرى` : '';
+
+  await scheduleNotification({
     content: {
       title: 'صباح الخير! 🌅',
-      body: 'تفقد مهام اليوم من هنا',
-      data: { type: 'morning_summary' },
+      body: `مهام اليوم (${todaysTasks.length}):\n${preview}${extra}`,
+      data: {
+        type: 'morning_summary',
+        count: todaysTasks.length,
+        taskIds: todaysTasks.map((task) => task.id),
+      },
       sound: settings.soundEnabled ? 'default' : undefined,
       ...(Platform.OS === 'android' ? { channelId: NOTIF_CHANNELS.summary } : {}),
     },
@@ -411,15 +507,20 @@ export async function scheduleMorningSummary(): Promise<void> {
 export async function scheduleEveningReview(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
   if (!settings.enabled || !settings.eveningReviewEnabled) {
-    await Notifications.cancelScheduledNotificationAsync('evening_review');
+    await cancelNotification('evening_review');
     return;
   }
 
-  const [h, m] = settings.eveningReviewTime.split(':').map(Number);
+  const clock = parseClock(settings.eveningReviewTime);
+  if (!clock) {
+    await cancelNotification('evening_review');
+    return;
+  }
+  const { hour: h, minute: m } = clock;
 
-  await Notifications.cancelScheduledNotificationAsync('evening_review');
+  await cancelNotification('evening_review');
 
-  await Notifications.scheduleNotificationAsync({
+  await scheduleNotification({
     content: {
       title: 'خلصت إيه النهارده؟ 🌙',
       body: 'لقّي يومك ومراجعة إنجازاتك',
@@ -441,19 +542,42 @@ export async function scheduleEveningReview(): Promise<void> {
 export async function scheduleOverdueCheck(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
   if (!settings.enabled || !settings.overdueReminderEnabled) {
-    await Notifications.cancelScheduledNotificationAsync('overdue_check');
+    await cancelNotification('overdue_check');
     return;
   }
 
-  const [h, m] = settings.overdueReminderTime.split(':').map(Number);
+  const clock = parseClock(settings.overdueReminderTime);
+  if (!clock) {
+    await cancelNotification('overdue_check');
+    return;
+  }
+  const { hour: h, minute: m } = clock;
 
-  await Notifications.cancelScheduledNotificationAsync('overdue_check');
+  // Never schedule a generic "you have overdue tasks" alert when there are
+  // none: that is the phantom notification users complained about.
+  const tasks = await taskRepository.getAll();
+  const today = localDateString(new Date());
+  const overdue = tasks.filter(
+    (task) => task.status !== 'done' && task.status !== 'cancelled' && task.date < today,
+  );
 
-  await Notifications.scheduleNotificationAsync({
+  await cancelNotification('overdue_check');
+  if (overdue.length === 0) return;
+
+  const preview = overdue.slice(0, 3).map((task) => task.title).join('، ');
+  const body = overdue.length === 1
+    ? `مهمة واحدة متأخرة: ${preview}`
+    : `${overdue.length} مهام متأخرة: ${preview}${overdue.length > 3 ? '...' : ''}`;
+
+  await scheduleNotification({
     content: {
       title: 'لديك مهام متأخرة ⚠️',
-      body: 'تفقد المهام المتأخرة وأنجزها',
-      data: { type: 'overdue_check' },
+      body,
+      data: {
+        type: 'overdue_check',
+        count: overdue.length,
+        taskIds: overdue.map((task) => task.id),
+      },
       sound: settings.soundEnabled ? 'default' : undefined,
       ...(Platform.OS === 'android' ? { channelId: NOTIF_CHANNELS.overdue } : {}),
     },
@@ -466,26 +590,41 @@ export async function scheduleOverdueCheck(): Promise<void> {
   });
 }
 
+/** Refreshes notifications whose content depends on the current task list. */
+export async function refreshTaskDerivedNotifications(): Promise<void> {
+  await Promise.all([
+    scheduleMorningSummary(),
+    scheduleOverdueCheck(),
+    scheduleUntimedTaskNudge(),
+  ]);
+}
+
 // --- Habit reminders ---
 
 export async function scheduleHabitReminders(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
   if (!settings.enabled || !settings.dailyHabitReminderEnabled) {
-    await Notifications.cancelScheduledNotificationAsync('habit_reminder');
+    await cancelNotification('habit_reminder');
     return;
   }
 
-  await Notifications.cancelScheduledNotificationAsync('habit_reminder');
+  await cancelNotification('habit_reminder');
 
-  const [h, m] = settings.habitReminderTime.split(':').map(Number);
+  const clock = parseClock(settings.habitReminderTime);
+  if (!clock) return;
+  const { hour: h, minute: m } = clock;
 
   const habits = await habitRepository.getAll();
-  if (habits.length === 0) return;
+  const today = localDateString(new Date());
+  const pending = habits.filter(
+    (habit) => isHabitDueOn(habit, today) && !isHabitCompletedOn(habit, today),
+  );
+  if (pending.length === 0) return;
 
-  await Notifications.scheduleNotificationAsync({
+  await scheduleNotification({
     content: {
       title: 'تذكير العادات اليومية 💪',
-      body: `لديك ${habits.length} عادة للإنجاز اليوم`,
+      body: `لديك ${pending.length} عادة للإنجاز اليوم`,
       data: { type: 'habit_reminder' },
       sound: settings.soundEnabled ? 'default' : undefined,
       ...(Platform.OS === 'android' ? { channelId: NOTIF_CHANNELS.habits } : {}),
@@ -507,13 +646,14 @@ const WEEKLY_BACKUP_ID = 'weekly_backup_reminder';
 export async function scheduleWeeklyBackupReminder(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
   if (!settings.enabled || !settings.weeklyBackupReminderEnabled) {
-    await Notifications.cancelScheduledNotificationAsync(WEEKLY_BACKUP_ID);
+    await cancelNotification(WEEKLY_BACKUP_ID);
     return;
   }
 
-  const [h, m] = (settings.weeklyBackupTime ?? '20:00').split(':').map(Number);
-  await Notifications.cancelScheduledNotificationAsync(WEEKLY_BACKUP_ID);
-  await Notifications.scheduleNotificationAsync({
+  const parsed = parseClock(settings.weeklyBackupTime) ?? { hour: 20, minute: 0 };
+  const { hour: h, minute: m } = parsed;
+  await cancelNotification(WEEKLY_BACKUP_ID);
+  await scheduleNotification({
     content: {
       title: 'وقت النسخة الاحتياطية 💾',
       body: 'صدّر نسخة من بياناتك عشان لا تضيع',
@@ -542,7 +682,7 @@ const UNTIMED_NUDGE_ID = 'untimed_task_nudge';
 export async function scheduleUntimedTaskNudge(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
   if (!settings.enabled || !settings.untimedTaskReminderEnabled) {
-    await Notifications.cancelScheduledNotificationAsync(UNTIMED_NUDGE_ID);
+    await cancelNotification(UNTIMED_NUDGE_ID);
     return;
   }
 
@@ -557,13 +697,14 @@ export async function scheduleUntimedTaskNudge(): Promise<void> {
   ).length;
 
   if (count === 0) {
-    await Notifications.cancelScheduledNotificationAsync(UNTIMED_NUDGE_ID);
+    await cancelNotification(UNTIMED_NUDGE_ID);
     return;
   }
 
-  const [h, m] = (settings.untimedTaskReminderTime || '16:00').split(':').map(Number);
-  await Notifications.cancelScheduledNotificationAsync(UNTIMED_NUDGE_ID);
-  await Notifications.scheduleNotificationAsync({
+  const parsed = parseClock(settings.untimedTaskReminderTime) ?? { hour: 16, minute: 0 };
+  const { hour: h, minute: m } = parsed;
+  await cancelNotification(UNTIMED_NUDGE_ID);
+  await scheduleNotification({
     content: {
       title: 'تذكير ذكي ⏰',
       body: `لديك ${count} مهمة مستحقة اليوم دون وقت محدد — رتّب يومك الآن`,
@@ -586,7 +727,7 @@ export async function notifyFocusSessionComplete(taskTitle?: string): Promise<vo
   const settings = await notificationSettingsRepository.getOrCreate();
   if (!settings.enabled) return;
 
-  await Notifications.scheduleNotificationAsync({
+  await scheduleNotification({
     content: {
       title: 'اكتملت جلسة التركيز 🔥',
       body: taskTitle
@@ -604,12 +745,12 @@ export async function rescheduleAllNotifications(): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
   if (!settings.enabled) {
     await cancelAllReminders();
-    await Notifications.cancelScheduledNotificationAsync('morning_summary');
-    await Notifications.cancelScheduledNotificationAsync('evening_review');
-    await Notifications.cancelScheduledNotificationAsync('overdue_check');
-    await Notifications.cancelScheduledNotificationAsync('habit_reminder');
-    await Notifications.cancelScheduledNotificationAsync(UNTIMED_NUDGE_ID);
-    await Notifications.cancelScheduledNotificationAsync(WEEKLY_BACKUP_ID);
+    await cancelNotification('morning_summary');
+    await cancelNotification('evening_review');
+    await cancelNotification('overdue_check');
+    await cancelNotification('habit_reminder');
+    await cancelNotification(UNTIMED_NUDGE_ID);
+    await cancelNotification(WEEKLY_BACKUP_ID);
     return;
   }
 
@@ -618,17 +759,27 @@ export async function rescheduleAllNotifications(): Promise<void> {
   const existing = await reminderRepository.getAll();
   await Promise.all(
     existing.map((reminder) =>
-      reminder.scheduledId
-        ? Notifications.cancelScheduledNotificationAsync(reminder.scheduledId).catch(() => {})
-        : Promise.resolve(),
+      reminder.scheduledId ? cancelNotification(reminder.scheduledId) : Promise.resolve(),
     ),
   );
   if (existing.length > 0) await reminderRepository.replaceAll([]);
 
   const allTasks = await taskRepository.getAll();
   const activeTasks = allTasks.filter(
-    (t) => t.status !== 'done' && t.status !== 'cancelled' && t.time,
+    (t) => t.status !== 'done' && t.status !== 'cancelled' && parseClock(t.time),
   );
+  const activeIds = new Set(activeTasks.map((task) => task.id));
+
+  // Remove native reminders whose task disappeared or was completed while the
+  // app was closed. Without this pass they keep firing as phantom alarms.
+  const scheduled = await getAllScheduled();
+  for (const request of scheduled) {
+    const data = request.content.data as { type?: string; taskId?: string } | undefined;
+    if (data?.type === 'reminder' && (!data.taskId || !activeIds.has(data.taskId))) {
+      await cancelNotification(request.identifier);
+    }
+  }
+
   const freshReminders: TaskReminder[] = [];
 
   for (const task of activeTasks) {
@@ -705,12 +856,12 @@ export async function handleNotificationAction(
     case 'postpone_hour': {
       const minutes = actionId === 'postpone_ten' ? 10 : 60;
       let updates: Partial<Task>;
-      if (task.time) {
-        const [h, m] = task.time.split(':').map(Number);
+      const clock = parseClock(task.time);
+      if (clock) {
         const d = new Date(`${task.date}T00:00:00`);
-        d.setHours(h, m + minutes, 0, 0);
+        d.setHours(clock.hour, clock.minute + minutes, 0, 0);
         updates = {
-          time: `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`,
+          time: formatClock(d.getHours(), d.getMinutes()),
           date: localDateString(d),
         };
       } else {

@@ -8,7 +8,6 @@ import {
   Alert,
 } from 'react-native';
 import {
-  ArrowLeft,
   ChevronRight,
   ChevronLeft,
   Calendar,
@@ -16,17 +15,16 @@ import {
   LayoutGrid,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { BackArrow } from '@/src/components/BackArrow';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, iconSize, iconStroke, bottomSpace } from '@/src/theme';
 import { taskRepository } from '@/src/storage';
 import { Task, TaskPriority } from '@/src/storage/entities';
 import { todayISODate } from '@/src/storage/repository';
 import { priorityColors, categoryColors } from '@/src/utils/taskUtils';
-import { scheduleTaskReminders } from '@/src/notifications';
-import { Button, Card, EmptyState } from '@/src/components';
+import { ensureRecurringTasks } from '@/src/utils/recurringUtils';
+import { scheduleTaskReminders, rescheduleAllNotifications } from '@/src/notifications';
+import { Button, Card, EmptyState, LoadingState, PlanBatchModal, ScreenHeader } from '@/src/components';
 
 type CalendarMode = 'week' | 'month';
 
@@ -75,8 +73,17 @@ export default function PlannerScreen() {
   const [mode, setMode] = useState<CalendarMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(todayISODate());
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   const load = useCallback(async () => {
+    const created = await ensureRecurringTasks();
+    if (created > 0) {
+      try {
+        await rescheduleAllNotifications();
+      } catch {
+        // Notifications are optional on web.
+      }
+    }
     const all = await taskRepository.getAll();
     setTasks(all);
     setLoading(false);
@@ -198,6 +205,23 @@ export default function PlannerScreen() {
     await load();
     Alert.alert(t('planning.auto'), scheduled > 0 ? t('planning.scheduled') : t('planning.noCandidates'));
   }, [load, t]);
+
+  const handleBatchSave = useCallback(
+    async (newTasks: Task[]) => {
+      let saved = 0;
+      for (const task of newTasks) {
+        await taskRepository.create(task);
+        await scheduleTaskReminders(task);
+        saved += 1;
+      }
+      await load();
+      Alert.alert(
+        t('planning.batchTitle'),
+        t('planning.savedPlan').replace('{count}', String(saved)),
+      );
+    },
+    [load, t],
+  );
 
   const renderDayCell = (date: Date, isCurrentMonth: boolean = true) => {
     const dateStr = dateToISO(date);
@@ -330,28 +354,14 @@ export default function PlannerScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.loadingContainer}>
-          <Text style={{ color: theme.text.tertiary, fontFamily: typography.fontFamily }}>
-            {t('common.loading')}
-          </Text>
-        </View>
+        <LoadingState label={t('common.loading')} />
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <BackArrow size={24} color={theme.text.primary} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-            {t('planner.title')}
-          </Text>
-          <View style={{ width: 24 }} />
-        </View>
-      </SafeAreaView>
+      <ScreenHeader title={t('planner.title')} onBack={() => router.back()} />
 
       <ScrollView
         style={styles.scrollView}
@@ -399,10 +409,27 @@ export default function PlannerScreen() {
           </Button>
         </Card>
 
+        {/* One-go day / week planning */}
+        <Card style={styles.autoCard}>
+          <Text style={[styles.autoTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+            {t('planning.batchTitle')}
+          </Text>
+          <Text style={[styles.autoDesc, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+            {t('planning.batchDesc')}
+          </Text>
+          <Button size="sm" onPress={() => setShowBatchModal(true)}>
+            {t('planning.batchAction')}
+          </Button>
+        </Card>
+
         {/* Calendar Header */}
         <View style={styles.calHeader}>
           <Pressable onPress={handlePrevPeriod} hitSlop={12} style={styles.navBtn}>
-            {isRTL ? <ChevronRight size={22} color={theme.text.secondary} /> : <ChevronLeft size={22} color={theme.text.secondary} />}
+            {isRTL ? (
+              <ChevronRight size={iconSize.xl} color={theme.text.secondary} strokeWidth={iconStroke.regular} />
+            ) : (
+              <ChevronLeft size={iconSize.xl} color={theme.text.secondary} strokeWidth={iconStroke.regular} />
+            )}
           </Pressable>
           <Pressable onPress={handleToday}>
             <Text style={[styles.calTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
@@ -410,7 +437,11 @@ export default function PlannerScreen() {
             </Text>
           </Pressable>
           <Pressable onPress={handleNextPeriod} hitSlop={12} style={styles.navBtn}>
-            {isRTL ? <ChevronLeft size={22} color={theme.text.secondary} /> : <ChevronRight size={22} color={theme.text.secondary} />}
+            {isRTL ? (
+              <ChevronLeft size={iconSize.xl} color={theme.text.secondary} strokeWidth={iconStroke.regular} />
+            ) : (
+              <ChevronRight size={iconSize.xl} color={theme.text.secondary} strokeWidth={iconStroke.regular} />
+            )}
           </Pressable>
         </View>
 
@@ -478,12 +509,19 @@ export default function PlannerScreen() {
             </View>
           ) : (
             <EmptyState
-              icon={<Calendar size={32} color={theme.text.tertiary} />}
+              icon={<Calendar size={iconSize.hero} color={theme.text.tertiary} />}
               title={t('planner.noTasks')}
             />
           )}
         </View>
       </ScrollView>
+
+      <PlanBatchModal
+        visible={showBatchModal}
+        onClose={() => setShowBatchModal(false)}
+        onSave={handleBatchSave}
+        initialDate={selectedDate}
+      />
     </View>
   );
 }
@@ -517,7 +555,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: bottomSpace.sheet,
   },
   modeToggleRow: {
     flexDirection: 'row',
@@ -599,7 +637,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   dayCount: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   legendRow: {
     flexDirection: 'row',
@@ -675,7 +713,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   taskTimeText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   taskMeta: {
     flexDirection: 'row',
@@ -697,7 +735,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   taskCatText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   doneBadge: {
     paddingVertical: 2,
@@ -705,7 +743,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   doneText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
   rolloverBadge: {
     paddingVertical: 2,
@@ -713,6 +751,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   rolloverText: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
 });

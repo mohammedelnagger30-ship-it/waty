@@ -1,14 +1,12 @@
 import { useCallback, useState } from 'react';
 import { View, StyleSheet, Text, ScrollView, Pressable, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Copy, Layers, Pencil, Sunrise, MoonStar } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
-import { BackArrow } from '@/src/components/BackArrow';
-import { Button, Card, EmptyState, FAB } from '@/src/components';
+import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
+import { Button, Card, EmptyState, FAB, ScreenHeader } from '@/src/components';
 import { TemplateFormModal } from '@/src/components/TemplateFormModal';
 import { FocusTaskPickerModal } from '@/src/components/FocusTaskPickerModal';
 import { taskTemplateRepository, taskRepository } from '@/src/storage';
@@ -103,22 +101,11 @@ export default function TemplatesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ padding: spacing.xs }}>
-            <BackArrow size={24} color={theme.text.primary} />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('templates.title')}
-            </Text>
-            <Text style={[styles.headerSubtitle, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-              {t('templates.subtitle')}
-            </Text>
-          </View>
-          <View style={{ width: 24 }} />
-        </View>
-      </SafeAreaView>
+      <ScreenHeader
+        title={t('templates.title')}
+        subtitle={t('templates.subtitle')}
+        onBack={() => router.back()}
+      />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Button
@@ -151,7 +138,7 @@ export default function TemplatesScreen() {
 
         {templates.length === 0 ? (
           <EmptyState
-            icon={<Layers size={36} color={theme.text.tertiary} />}
+            icon={<Layers size={iconSize.hero} color={theme.text.tertiary} />}
             title={t('templates.empty')}
             description={t('templates.emptyDesc')}
           />
@@ -197,7 +184,7 @@ export default function TemplatesScreen() {
         )}
       </ScrollView>
 
-      <FAB onPress={openNew} bottom={28} icon={<Layers size={26} color="#FFFFFF" />} />
+      <FAB onPress={openNew} />
 
       <TemplateFormModal
         visible={showForm}
@@ -225,7 +212,7 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   headerTitle: { fontSize: typography.sizes.lg },
   headerSubtitle: { fontSize: typography.sizes.xs },
-  content: { padding: spacing.lg, paddingBottom: 110, gap: spacing.md },
+  content: { padding: spacing.lg, paddingBottom: bottomSpace.fab, gap: spacing.md },
   list: { gap: spacing.md },
   card: { gap: spacing.sm, padding: spacing.md },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },

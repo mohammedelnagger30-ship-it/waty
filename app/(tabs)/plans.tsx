@@ -7,17 +7,18 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Goal, Habit, Plan, Task, GoalStatus } from '@/src/storage/entities';
+import { Goal, Habit, Plan, RecurringPlan, Task, GoalStatus } from '@/src/storage/entities';
 import {
   goalRepository,
   habitRepository,
   planRepository,
+  recurringPlanRepository,
   taskRepository,
 } from '@/src/storage';
 import { generateId, todayISODate } from '@/src/storage/repository';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing } from '@/src/theme';
+import { spacing, iconSize, bottomSpace } from '@/src/theme';
 import {
   ScreenHeader,
   EmptyState,
@@ -29,17 +30,20 @@ import {
   GoalFormModal,
   HabitFormModal,
   PlanFormModal,
+  RecurringPlanModal,
+  RecurringPlanCard,
   GoalDetailModal,
 } from '@/src/components';
-import { Target, Layers, Flame } from 'lucide-react-native';
+import { Target, Layers, Flame, RefreshCw } from 'lucide-react-native';
 import {
   createBundleFromTemplate,
   syncGoalProgress,
 } from '@/src/utils/goalUtils';
 import { toggleHabitDate } from '@/src/utils/habitUtils';
-import { rescheduleAllNotifications } from '@/src/notifications';
+import { cancelRecurringPlan, ensureRecurringTasks } from '@/src/utils/recurringUtils';
+import { rescheduleAllNotifications, scheduleHabitReminders, scheduleTaskReminders } from '@/src/notifications';
 
-type Section = 'goals' | 'plans' | 'habits';
+type Section = 'goals' | 'plans' | 'habits' | 'recurring';
 
 export default function PlansScreen() {
   const { theme } = useTheme();
@@ -50,22 +54,25 @@ export default function PlansScreen() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [recurringPlans, setRecurringPlans] = useState<RecurringPlan[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const [goalModal, setGoalModal] = useState(false);
   const [habitModal, setHabitModal] = useState(false);
   const [planModal, setPlanModal] = useState(false);
+  const [recurringModal, setRecurringModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
 
   const load = useCallback(async () => {
-    const [storedGoals, storedPlans, storedHabits, storedTasks] = await Promise.all([
+    const [storedGoals, storedPlans, storedHabits, storedRecurring, storedTasks] = await Promise.all([
       goalRepository.getAll(),
       planRepository.getAll(),
       habitRepository.getAll(),
+      recurringPlanRepository.getAll(),
       taskRepository.getAll(),
     ]);
 
@@ -85,6 +92,7 @@ export default function PlansScreen() {
     setGoals(syncedGoals);
     setPlans(storedPlans);
     setHabits(storedHabits);
+    setRecurringPlans(storedRecurring.filter((plan) => plan.active !== false));
     setTasks(storedTasks);
   }, []);
 
@@ -131,6 +139,11 @@ export default function PlansScreen() {
         await planRepository.create(plan);
         for (const task of suggestedTasks) {
           await taskRepository.create(task);
+          try {
+            await scheduleTaskReminders(task);
+          } catch {
+            // Notifications are optional on web.
+          }
         }
       }
     } else if (isEdit) {
@@ -228,6 +241,11 @@ export default function PlansScreen() {
       bestStreak: updated.bestStreak,
     });
     setHabits((prev) => prev.map((item) => (item.id === habit.id ? updated : item)));
+    try {
+      await scheduleHabitReminders();
+    } catch {
+      // Notifications are optional on web.
+    }
   };
 
   const handleDeleteHabit = (habit: Habit) => {
@@ -272,6 +290,39 @@ export default function PlansScreen() {
     ]);
   };
 
+  const handleSaveRecurring = async (incoming: RecurringPlan[]) => {
+    for (const plan of incoming) {
+      await recurringPlanRepository.create(plan);
+    }
+    await ensureRecurringTasks();
+    try {
+      await rescheduleAllNotifications();
+    } catch {
+      // Notifications are optional on web.
+    }
+    setRecurringModal(false);
+    await load();
+  };
+
+  const handleCancelRecurring = (plan: RecurringPlan) => {
+    Alert.alert(t('plans.cancelRecurring'), plan.title, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('plans.cancelRecurring'),
+        style: 'destructive',
+        onPress: async () => {
+          await cancelRecurringPlan(plan.id);
+          try {
+            await rescheduleAllNotifications();
+          } catch {
+            // Notifications are optional on web.
+          }
+          await load();
+        },
+      },
+    ]);
+  };
+
   const openNew = () => {
     if (section === 'goals') {
       setEditingGoal(null);
@@ -279,6 +330,8 @@ export default function PlansScreen() {
     } else if (section === 'habits') {
       setEditingHabit(null);
       setHabitModal(true);
+    } else if (section === 'recurring') {
+      setRecurringModal(true);
     } else {
       setEditingPlan(null);
       setPlanModal(true);
@@ -290,7 +343,7 @@ export default function PlansScreen() {
       if (goals.length === 0) {
         return (
           <EmptyState
-            icon={<Target size={36} color={theme.text.tertiary} />}
+            icon={<Target size={iconSize.hero} color={theme.text.tertiary} />}
             title={t('plans.noGoals')}
             description={t('plans.noGoalsDesc')}
           />
@@ -316,7 +369,7 @@ export default function PlansScreen() {
       if (habits.length === 0) {
         return (
           <EmptyState
-            icon={<Flame size={36} color={theme.text.tertiary} />}
+            icon={<Flame size={iconSize.hero} color={theme.text.tertiary} />}
             title={t('plans.noHabits')}
             description={t('plans.noHabitsDesc')}
           />
@@ -336,10 +389,29 @@ export default function PlansScreen() {
       ));
     }
 
+    if (section === 'recurring') {
+      if (recurringPlans.length === 0) {
+        return (
+          <EmptyState
+            icon={<RefreshCw size={iconSize.hero} color={theme.text.tertiary} />}
+            title={t('plans.noRecurring')}
+            description={t('plans.noRecurringDesc')}
+          />
+        );
+      }
+      return recurringPlans.map((plan) => (
+        <RecurringPlanCard
+          key={plan.id}
+          plan={plan}
+          onCancel={() => handleCancelRecurring(plan)}
+        />
+      ));
+    }
+
     if (plans.length === 0) {
       return (
         <EmptyState
-          icon={<Layers size={36} color={theme.text.tertiary} />}
+          icon={<Layers size={iconSize.hero} color={theme.text.tertiary} />}
           title={t('plans.noPlansList')}
           description={t('plans.noPlansListDesc')}
         />
@@ -372,6 +444,9 @@ export default function PlansScreen() {
         </Chip>
         <Chip selected={section === 'habits'} onPress={() => setSection('habits')}>
           {t('plans.habitsTab')}
+        </Chip>
+        <Chip selected={section === 'recurring'} onPress={() => setSection('recurring')}>
+          {t('plans.recurringTab')}
         </Chip>
       </View>
 
@@ -414,6 +489,11 @@ export default function PlansScreen() {
         }}
         onSave={handleSavePlan}
       />
+      <RecurringPlanModal
+        visible={recurringModal}
+        onClose={() => setRecurringModal(false)}
+        onSave={handleSaveRecurring}
+      />
       <GoalDetailModal
         visible={selectedGoal !== null}
         goal={selectedGoal}
@@ -440,6 +520,7 @@ const styles = StyleSheet.create({
   },
   segments: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
@@ -451,6 +532,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   bottomSpace: {
-    height: 100,
+    height: bottomSpace.fab,
   },
 });

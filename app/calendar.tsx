@@ -1,12 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, iconSize, iconStroke, bottomSpace } from '@/src/theme';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { Card } from '@/src/components/Card';
+import { FAB } from '@/src/components/FAB';
 import { Task } from '@/src/storage/entities';
 import { taskRepository } from '@/src/storage';
 import { formatDateDisplay } from '@/src/utils/taskUtils';
@@ -85,13 +86,21 @@ export default function CalendarScreen() {
         <Card style={styles.monthCard}>
           <View style={styles.monthHeader}>
             <Pressable onPress={() => shiftMonth(-1)} style={styles.navBtn}>
-              {isRTL ? <ChevronRight size={22} color={theme.text.primary} /> : <ChevronLeft size={22} color={theme.text.primary} />}
+              {isRTL ? (
+                <ChevronRight size={iconSize.xl} color={theme.text.primary} strokeWidth={iconStroke.regular} />
+              ) : (
+                <ChevronLeft size={iconSize.xl} color={theme.text.primary} strokeWidth={iconStroke.regular} />
+              )}
             </Pressable>
             <Text style={[styles.monthTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
               {monthLabel}
             </Text>
             <Pressable onPress={() => shiftMonth(1)} style={styles.navBtn}>
-              {isRTL ? <ChevronLeft size={22} color={theme.text.primary} /> : <ChevronRight size={22} color={theme.text.primary} />}
+              {isRTL ? (
+                <ChevronLeft size={iconSize.xl} color={theme.text.primary} strokeWidth={iconStroke.regular} />
+              ) : (
+                <ChevronRight size={iconSize.xl} color={theme.text.primary} strokeWidth={iconStroke.regular} />
+              )}
             </Pressable>
           </View>
 
@@ -178,19 +187,14 @@ export default function CalendarScreen() {
         )}
       </ScrollView>
 
-      <Pressable
-        onPress={() => router.push('/tasks')}
-        style={[styles.fab, { backgroundColor: theme.primary[500] }]}
-      >
-        <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
-      </Pressable>
+      <FAB onPress={() => router.push('/tasks')} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: 96 },
+  content: { padding: spacing.lg, paddingBottom: bottomSpace.tab },
   monthCard: { marginBottom: spacing.md },
   monthHeader: {
     flexDirection: 'row',
@@ -229,15 +233,4 @@ const styles = StyleSheet.create({
   },
   taskTitle: { fontSize: typography.sizes.sm, flex: 1 },
   taskTime: { fontSize: typography.sizes.xs, marginStart: spacing.sm },
-  fab: {
-    position: 'absolute',
-    end: spacing.lg,
-    bottom: 16,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-  },
 });

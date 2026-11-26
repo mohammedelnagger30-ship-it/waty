@@ -59,6 +59,8 @@ export interface Task {
   reminderCustomMinutes?: number; // used when 'custom' is selected
   /** Alarm tone used for the "at time" reminder. Falls back to global setting. */
   alarmSound?: AlarmSoundId;
+  /** Links an auto-generated occurrence to its recurring definition. */
+  recurringPlanId?: string;
 }
 
 /** A reusable task recipe for routines and repeated work. */
@@ -117,6 +119,36 @@ export interface Plan {
   type: 'weekly' | 'monthly' | 'custom';
   phases: PlanPhase[];
   taskIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RecurringPlanMode = 'weekdays' | 'interval';
+
+/**
+ * A task that repeats forever until the user stops it. No end date: the
+ * schedule is expressed by weekdays or by an every-N-days interval.
+ */
+export interface RecurringPlan {
+  id: string;
+  title: string;
+  mode: RecurringPlanMode;
+  /** 0=Sunday .. 6=Saturday; used when mode is 'weekdays'. */
+  weekdays?: number[];
+  /** 1=daily, 2=every other day, ...; used when mode is 'interval'. */
+  intervalDays?: number;
+  /** First eligible day and interval anchor (YYYY-MM-DD). */
+  anchorDate: string;
+  time?: string;
+  priority: TaskPriority;
+  category: TaskCategory;
+  estimatedMinutes?: number;
+  tags: string[];
+  subtaskTitles: string[];
+  reminderOffsets?: ReminderOffset[];
+  reminderCustomMinutes?: number;
+  goalId?: string;
+  active: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -251,4 +283,4 @@ export interface WeeklyReview {
   updatedAt: string;
 }
 
-export type EntityType = 'tasks' | 'goals' | 'plans' | 'habits' | 'reviews' | 'settings' | 'pomodoros' | 'reminders' | 'notif_settings' | 'weekly_reviews' | 'task_templates';
+export type EntityType = 'tasks' | 'goals' | 'plans' | 'recurring_plans' | 'habits' | 'reviews' | 'settings' | 'pomodoros' | 'reminders' | 'notif_settings' | 'weekly_reviews' | 'task_templates';

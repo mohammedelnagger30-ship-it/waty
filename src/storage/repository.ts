@@ -3,6 +3,18 @@ import { EntityType } from './entities';
 
 const STORAGE_PREFIX = '@waqty/';
 
+// One in-memory snapshot per collection. Every entity write goes through a
+// repository, so the snapshot stays in sync without touching AsyncStorage on
+// every tab focus. It also keeps object identities stable, letting React.memo
+// and useState bail out instead of re-rendering whole lists for unchanged data.
+const caches = new Map<EntityType, unknown[]>();
+
+/** Drops cached snapshots after an external restore or when debugging storage. */
+export function invalidateRepositoryCache(type?: EntityType): void {
+  if (type) caches.delete(type);
+  else caches.clear();
+}
+
 // AsyncStorage repositories do read-modify-write. Without serialization, a
 // quick create followed by delete (or vice versa) can interleave and bring a
 // deleted task back. Queue every access per entity type so reads always see
@@ -21,18 +33,26 @@ function key(type: EntityType): string {
 }
 
 async function readAll<T>(type: EntityType): Promise<T[]> {
+  const cached = caches.get(type);
+  if (cached) return cached as T[];
   try {
     const raw = await AsyncStorage.getItem(key(type));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    let items: T[] = [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) items = parsed;
+    }
+    caches.set(type, items);
+    return items;
   } catch {
     return [];
   }
 }
 
 async function writeAll<T>(type: EntityType, items: T[]): Promise<void> {
-  await AsyncStorage.setItem(key(type), JSON.stringify(items));
+  const snapshot = items.slice();
+  await AsyncStorage.setItem(key(type), JSON.stringify(snapshot));
+  caches.set(type, snapshot);
 }
 
 export function createRepository<T extends { id: string }>(type: EntityType) {
@@ -52,8 +72,7 @@ export function createRepository<T extends { id: string }>(type: EntityType) {
       return queueWrite(type, async () => {
         const items = await readAll<T>(type);
         if (items.some((existing) => existing.id === item.id)) return item;
-        items.push(item);
-        await writeAll(type, items);
+        await writeAll(type, [...items, item]);
         return item;
       });
     },
@@ -63,14 +82,15 @@ export function createRepository<T extends { id: string }>(type: EntityType) {
         const items = await readAll<T>(type);
         const index = items.findIndex((item) => item.id === id);
         if (index === -1) return null;
-        items[index] = {
-          ...items[index],
+        const next = items.slice();
+        next[index] = {
+          ...next[index],
           ...updates,
-          id: items[index].id,
-          ...('updatedAt' in items[index] ? { updatedAt: new Date().toISOString() } : {}),
+          id: next[index].id,
+          ...('updatedAt' in next[index] ? { updatedAt: new Date().toISOString() } : {}),
         };
-        await writeAll(type, items);
-        return items[index];
+        await writeAll(type, next);
+        return next[index];
       });
     },
 
@@ -89,7 +109,10 @@ export function createRepository<T extends { id: string }>(type: EntityType) {
     },
 
     async clear(): Promise<void> {
-      return queueWrite(type, () => AsyncStorage.removeItem(key(type)));
+      return queueWrite(type, async () => {
+        await AsyncStorage.removeItem(key(type));
+        caches.delete(type);
+      });
     },
   };
 }

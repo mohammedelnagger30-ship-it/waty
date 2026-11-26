@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Text, ScrollView, Pressable, Alert, Share, Platform } from 'react-native';
-import { ArrowLeft, CheckCircle2, Target, Flame, Save, CalendarRange, Sparkles, Copy } from 'lucide-react-native';
+import { View, StyleSheet, Text, ScrollView, Alert, Share, Platform } from 'react-native';
+import { CheckCircle2, Target, Flame, Save, CalendarRange, Sparkles, Copy } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { BackArrow } from '@/src/components/BackArrow';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
-import { Button, Card, Chip, Input, StatCard } from '@/src/components';
+import { Button, Card, Chip, Input, StatCard, ScreenHeader } from '@/src/components';
 import {
   taskRepository,
   goalRepository,
@@ -187,22 +185,11 @@ export default function WeeklyReviewScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <BackArrow size={24} color={theme.text.primary} />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={[styles.headerTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-              {t('weekly.title')}
-            </Text>
-            <Text style={[styles.headerSubtitle, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-              {t('weekly.subtitle')}
-            </Text>
-          </View>
-          <View style={{ width: 24 }} />
-        </View>
-      </SafeAreaView>
+      <ScreenHeader
+        title={t('weekly.title')}
+        subtitle={t('weekly.subtitle')}
+        onBack={() => router.back()}
+      />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={[styles.weekBadge, { backgroundColor: theme.primary[500] + '18' }]}>

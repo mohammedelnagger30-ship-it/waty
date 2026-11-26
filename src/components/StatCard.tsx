@@ -64,6 +64,6 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
   },
   sublabel: {
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
   },
 });
