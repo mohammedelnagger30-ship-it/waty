@@ -1,9 +1,9 @@
 {
-  "version": "1.7.0",
-  "versionCode": 11,
-  "notes": "• تصميم متجاوب من الهواتف 320dp إلى التابلت 800dp+: المحتوى في عمود متوسط على الشاشات الكبيرة بدل شريط ضيق\n• شريط التابات وأزرار الإضافة وشبكة الكالندر والإحصائيات تتكيف مع عرض الشاشة\n• إصلاح إخفاء أزرار الإضافة والإلغاء تحت لوحة المفاتيح على أجهزة مثل Galaxy Tab\n• مساحة إضافية أسفل الشاشات ذات الحقول عند ظهور لوحة المفاتيح\n• دعم أفضل لتعدد النوافذ وتغيير المقاسات بدون قص أو تداخل",
-  "notesEn": "• Responsive layout from 320dp phones to 800dp+ tablets: centered content column instead of a narrow stripe\n• Tab bar, FABs, calendar grid and stats adapt to the available width\n• Fixed bottom-sheet actions hidden under the keyboard on devices such as Galaxy Tab\n• Extra bottom clearance on text-input screens when the keyboard appears\n• Better support for multi-window and size changes without clipping or overlap",
-  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.7.0/Orbit-release.apk",
-  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.7.0",
-  "sha256": "e6071e3c54e18a7bd8e17113a578bfa1647290f9b35a782f42dded45978fe96c"
+  "version": "1.8.0",
+  "versionCode": 12,
+  "notes": "• حسابات Supabase سحابية لكل مستخدم مع دمج بيانات الجهاز عند أول تسجيل دخول\n• إصلاح تعديل المهام على التلفون من قائمة المهام وشاشة التفاصيل\n• المهام المتكررة: تعديل الخطة مع الحفاظ على السجل وإعادة توليد المواعيد المستقبلية فقط\n• تحسينات شاملة للعرض في الوضع الأفقي والرأسي ومن 320dp إلى التابلت 800dp+\n• ضبط النوافذ المنبثقة ولوحة المفاتيح وأزرار الإضافة والتقويم والإحصائيات\n• تنبيهات واهتزاز أعلى صوتًا مع الحفاظ على التطبيقات المفعّلة",
+  "notesEn": "• Supabase cloud accounts with per-user data and first-login merge of local data\n• Fixed task editing on phones from both the task list and the detail screen\n• Recurring plans: edit while keeping history and regenerating only future occurrences\n• Full portrait/landscape and RTL/LTR polish from 320dp phones to 800dp+ tablets\n• Refined sheets, keyboard clearance, FABs, calendar grid and stats\n• Louder alarms and stronger vibration while keeping previously enabled apps enabled",
+  "apkUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/download/v1.8.0/Orbit-release.apk",
+  "releaseUrl": "https://github.com/mohammedelnagger30-ship-it/waty/releases/tag/v1.8.0",
+  "sha256": "2ed01bfe6f37ad60b60b50e159a38d3915980017d0e68931213b9f0ff3611fbe"
 }
