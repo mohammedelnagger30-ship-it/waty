@@ -157,14 +157,26 @@ export function computeDashboardStats(
     .map((task) => dateOf(task.completedAt) ?? task.date);
   const streak = countStreak(streakDates);
 
+  // One pass over tasks instead of filtering the whole list for every day.
+  const completedByDate = new Map<string, number>();
+  const createdByDate = new Map<string, number>();
+  for (const task of tasks) {
+    const created = dateOf(task.createdAt);
+    if (created) createdByDate.set(created, (createdByDate.get(created) ?? 0) + 1);
+    if (task.status === 'done') {
+      const done = dateOf(task.completedAt) ?? task.date;
+      completedByDate.set(done, (completedByDate.get(done) ?? 0) + 1);
+    }
+  }
+
   const dayCount = period === 'all' ? 7 : Number(period);
   const daily: DayActivity[] = Array.from({ length: dayCount }, (_, index) => {
     const date = addDays(today, -(dayCount - 1 - index));
     return {
       date,
       label: dayLabel(date, language),
-      completed: completed.filter((task) => (dateOf(task.completedAt) ?? task.date) === date).length,
-      created: tasks.filter((task) => dateOf(task.createdAt) === date).length,
+      completed: completedByDate.get(date) ?? 0,
+      created: createdByDate.get(date) ?? 0,
     };
   });
 

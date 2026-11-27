@@ -6,13 +6,14 @@ import {
   ScrollView,
   TextInput,
   Pressable,
+  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { Plus, X, Check, Trash2, Calendar, Tag as TagIcon, Repeat, StickyNote, ListChecks, BellRing, Volume2 } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n, type TranslationKey } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, useResponsive } from '@/src/theme';
 import { ModalSheet } from './ModalSheet';
 import { TimePickerField } from './TimePickerField';
 import { Button } from './Button';
@@ -31,7 +32,8 @@ import {
   weekDays,
   priorityColors,
   categoryColors,
-  dependsOnReaches,
+  dependsOnReachesInIndex,
+  indexTasksById,
 } from '@/src/utils/taskUtils';
 import { parseSmartInput } from '@/src/utils/smartInput';
 import { suggestEstimate } from '@/src/utils/insights';
@@ -39,7 +41,8 @@ import { suggestEstimate } from '@/src/utils/insights';
 interface TaskFormModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (task: Task) => void | Promise<void>;
+  /** Return false to keep the form open when persistence fails. */
+  onSave: (task: Task) => void | boolean | Promise<void | boolean>;
   onDelete?: (id: string) => void | Promise<void>;
   editingTask?: Task | null;
   initialTask?: Task | null;
@@ -62,6 +65,7 @@ const reminderLabelKeys: Record<ReminderOffset, TranslationKey> = {
 export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask, initialTask }: TaskFormModalProps) {
   const { theme, isDark } = useTheme();
   const { t, language } = useI18n();
+  const responsive = useResponsive();
   const scrollRef = useRef<ScrollView>(null);
 
   const [task, setTask] = useState<Task>(createDefaultTask());
@@ -69,26 +73,38 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
   const [subtaskInput, setSubtaskInput] = useState('');
   const [showCustomCat, setShowCustomCat] = useState(false);
   const [dependencyOptions, setDependencyOptions] = useState<Task[]>([]);
+  const [saving, setSaving] = useState(false);
 
+  // Only seed the form on the closed -> open transition. The detail screen
+  // reloads the task after every save; re-seeding from that new object would
+  // otherwise silently discard whatever the user is typing.
+  const wasVisible = useRef(false);
   useEffect(() => {
-    if (visible) {
-      if (editingTask) {
-        setTask({ ...editingTask });
-        setShowCustomCat(editingTask.category === 'custom');
-      } else {
-        setTask(initialTask ? { ...initialTask } : createDefaultTask());
-        setShowCustomCat(initialTask?.category === 'custom');
-      }
-      setTagInput('');
-      setSubtaskInput('');
+    if (!visible) {
+      wasVisible.current = false;
+      return;
     }
+    if (wasVisible.current) return;
+    wasVisible.current = true;
+    if (editingTask) {
+      setTask({ ...editingTask });
+      setShowCustomCat(editingTask.category === 'custom');
+    } else {
+      setTask(initialTask ? { ...initialTask } : createDefaultTask());
+      setShowCustomCat(initialTask?.category === 'custom');
+    }
+    setTagInput('');
+    setSubtaskInput('');
   }, [visible, editingTask, initialTask]);
 
   useEffect(() => {
     if (!visible) return;
     void taskRepository.getAll().then((all) => {
+      const byId = indexTasksById(all);
       setDependencyOptions(
-        all.filter((item) => item.id !== task.id && !dependsOnReaches(item.id, task.id, all)),
+        all.filter(
+          (item) => item.id !== task.id && !dependsOnReachesInIndex(item.id, task.id, byId),
+        ),
       );
     });
   }, [visible, task.id]);
@@ -163,16 +179,26 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
   };
 
   const handleSave = async () => {
-    if (!task.title.trim()) return;
+    if (!task.title.trim() || saving) return;
     const parsed = editingTask ? null : parseSmartInput(task.title);
-    await onSave({
-      ...task,
-      title: (parsed?.title || task.title).trim(),
-      date: parsed?.date ?? task.date,
-      time: parsed?.time ?? task.time,
-      updatedAt: new Date().toISOString(),
-    });
-    onClose();
+    setSaving(true);
+    try {
+      const saved = await onSave({
+        ...task,
+        title: (parsed?.title || task.title).trim(),
+        date: parsed?.date ?? task.date,
+        time: parsed?.time ?? task.time,
+        updatedAt: new Date().toISOString(),
+      });
+      if (saved !== false) onClose();
+    } catch (error) {
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -230,8 +256,9 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
             </Chip>
           </View>
 
-          {/* Date & Time row */}
-          <View style={[styles.row, styles.fieldGap]}>
+          {/* Date & Time row: stack on compact screens so the Arabic/English
+              time label never gets clipped inside a half-width field. */}
+          <View style={[styles.row, styles.fieldGap, responsive.isCompact && styles.rowStacked]}>
             <View style={styles.flex1}>
               <Text style={[styles.fieldLabel, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
                 {t('tasks.field.date')}
@@ -652,6 +679,7 @@ export function TaskFormModal({ visible, onClose, onSave, onDelete, editingTask,
               variant="primary"
               onPress={handleSave}
               disabled={!task.title.trim()}
+              loading={saving}
               icon={<Check size={18} color="#FFFFFF" />}
             >
               {t('common.save')}
@@ -670,6 +698,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  rowStacked: {
+    flexDirection: 'column',
+    gap: spacing.sm,
   },
   flex1: {
     flex: 1,
@@ -783,6 +815,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.sm,
   },

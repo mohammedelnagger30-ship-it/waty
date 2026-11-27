@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Coffee, History, Timer } from 'lucide-react-native';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize } from '@/src/theme';
 import { ScreenHeader, EmptyState, Chip, Card } from '@/src/components';
@@ -19,6 +19,7 @@ import { PomodoroSession, Task } from '@/src/storage/entities';
 type Filter = 'all' | 'focus' | 'break';
 
 export default function FocusHistoryScreen() {
+  const { dataVersion } = useAuth();
   const { theme } = useTheme();
   const { t, language } = useI18n();
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function FocusHistoryScreen() {
     setTasks(allTasks);
   }, []);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => { void load(); }, [load, dataVersion]));
 
   const onRefresh = async () => {
     setRefreshing(true);

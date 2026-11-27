@@ -24,6 +24,8 @@ export interface ResponsiveMetrics {
   isWide: boolean;
   isTablet: boolean;
   isLandscape: boolean;
+  /** Landscape phones/short tablets where vertical space is the limiting factor. */
+  isShortLandscape: boolean;
   /** Width of the main app column. Full-bleed on phones, centered on tablets. */
   contentWidth: number;
   /** Max width of forms/sheets so fields never stretch across a tablet. */
@@ -58,6 +60,7 @@ export function getResponsiveMetrics(width: number, height: number): ResponsiveM
     isWide,
     isTablet: breakpoint === 'tablet',
     isLandscape: width > height,
+    isShortLandscape: width > height && height < 500,
     contentWidth,
     formWidth,
     gutter,

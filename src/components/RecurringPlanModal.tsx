@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Plus, RefreshCw, X } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -29,6 +36,7 @@ interface RecurringPlanModalProps {
   visible: boolean;
   onClose: () => void;
   onSave: (plans: RecurringPlan[]) => Promise<void> | void;
+  editingPlan?: RecurringPlan | null;
 }
 
 const DAY_NAMES_AR = ['أحد', 'إثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت'];
@@ -46,16 +54,41 @@ function newRow(): RecurringRow {
   };
 }
 
+function planToRow(plan: RecurringPlan): RecurringRow {
+  return {
+    id: plan.id,
+    title: plan.title,
+    time: plan.time ?? '09:00',
+    mode: plan.mode,
+    weekdays: [...(plan.weekdays ?? [])],
+    intervalDays: plan.intervalDays ?? 2,
+    anchorDate: plan.anchorDate,
+  };
+}
+
 /** Enter several forever-repeating tasks at once, each with its own schedule. */
-export function RecurringPlanModal({ visible, onClose, onSave }: RecurringPlanModalProps) {
+export function RecurringPlanModal({ visible, onClose, onSave, editingPlan }: RecurringPlanModalProps) {
   const { theme } = useTheme();
   const { t, language } = useI18n();
-  const [rows, setRows] = useState<RecurringRow[]>([newRow()]);
+  const { height: screenHeight } = useWindowDimensions();
+  const isEditing = editingPlan != null;
+  const modalTitle = isEditing ? t('plans.editRecurring') : t('plans.newRecurring');
+  const scrollRef = useRef<ScrollView>(null);
+  const [rows, setRows] = useState<RecurringRow[]>(() => [newRow()]);
   const [saving, setSaving] = useState(false);
 
+  // Keep the rows area bounded so the sheet can scroll instead of clipping
+  // rows and the save button on small screens/landscape keyboards.
+  const rowsMaxHeight = useMemo(
+    () => Math.max(180, Math.min(420, Math.round(screenHeight * 0.42))),
+    [screenHeight],
+  );
+
   useEffect(() => {
-    if (visible) setRows([newRow()]);
-  }, [visible]);
+    if (!visible) return;
+    setRows(editingPlan ? [planToRow(editingPlan)] : [newRow()]);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [visible, editingPlan]);
 
   const dayNames = language === 'ar' ? DAY_NAMES_AR : DAY_NAMES_EN;
 
@@ -75,42 +108,46 @@ export function RecurringPlanModal({ visible, onClose, onSave }: RecurringPlanMo
   const handleSave = async () => {
     const filled = rows.filter((row) => row.title.trim().length > 0);
     if (filled.length === 0) {
-      Alert.alert(t('plans.newRecurring'), t('planning.emptyRows'));
+      Alert.alert(modalTitle, t('planning.emptyRows'));
       return;
     }
     if (filled.some((row) => row.mode === 'weekdays' && row.weekdays.length === 0)) {
-      Alert.alert(t('plans.newRecurring'), t('plans.recurringNeedDays'));
+      Alert.alert(modalTitle, t('plans.recurringNeedDays'));
       return;
     }
     if (filled.some((row) => row.mode === 'interval' && row.intervalDays < 1)) {
-      Alert.alert(t('plans.newRecurring'), t('plans.recurringNeedInterval'));
+      Alert.alert(modalTitle, t('plans.recurringNeedInterval'));
       return;
     }
 
     setSaving(true);
     try {
       const settings = await notificationSettingsRepository.getOrCreate();
-      const offsets: ReminderOffset[] = Array.from(
+      const defaults: ReminderOffset[] = Array.from(
         new Set<ReminderOffset>(['at_time', ...(settings.defaultReminders ?? [])]),
       );
       const timestamp = nowISO();
-      const plans: RecurringPlan[] = filled.map((row) => ({
-        id: generateId(),
-        title: row.title.trim(),
-        mode: row.mode,
-        weekdays: row.mode === 'weekdays' ? [...row.weekdays].sort((a, b) => a - b) : undefined,
-        intervalDays: row.mode === 'interval' ? Math.min(30, row.intervalDays) : undefined,
-        anchorDate: row.anchorDate || todayISODate(),
-        time: row.time || undefined,
-        priority: 'medium',
-        category: 'personal',
-        tags: [],
-        subtaskTitles: [],
-        reminderOffsets: offsets,
-        active: true,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }));
+      const plans: RecurringPlan[] = filled.map((row) => {
+        const base = editingPlan?.id === row.id ? editingPlan : undefined;
+        return {
+          ...base,
+          id: row.id,
+          title: row.title.trim(),
+          mode: row.mode,
+          weekdays: row.mode === 'weekdays' ? [...row.weekdays].sort((a, b) => a - b) : undefined,
+          intervalDays: row.mode === 'interval' ? Math.min(30, row.intervalDays) : undefined,
+          anchorDate: row.anchorDate || todayISODate(),
+          time: row.time || undefined,
+          priority: base?.priority ?? 'medium',
+          category: base?.category ?? 'personal',
+          tags: base ? [...base.tags] : [],
+          subtaskTitles: base ? [...base.subtaskTitles] : [],
+          reminderOffsets: base ? [...(base.reminderOffsets ?? defaults)] : defaults,
+          active: base ? base.active !== false : true,
+          createdAt: base?.createdAt ?? timestamp,
+          updatedAt: timestamp,
+        };
+      });
       await onSave(plans);
       onClose();
     } finally {
@@ -119,7 +156,7 @@ export function RecurringPlanModal({ visible, onClose, onSave }: RecurringPlanMo
   };
 
   return (
-    <ModalSheet visible={visible} onClose={onClose} title={t('plans.newRecurring')}>
+    <ModalSheet visible={visible} onClose={onClose} title={modalTitle}>
       <View style={styles.content}>
         <View style={styles.hintRow}>
           <RefreshCw size={16} color={theme.primary[500]} />
@@ -128,7 +165,14 @@ export function RecurringPlanModal({ visible, onClose, onSave }: RecurringPlanMo
           </Text>
         </View>
 
-        <ScrollView style={styles.rowsScroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          style={[styles.rowsScroll, { maxHeight: rowsMaxHeight }]}
+          contentContainerStyle={styles.rowsContent}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           {rows.map((row, index) => (
             <View
               key={row.id}
@@ -144,7 +188,11 @@ export function RecurringPlanModal({ visible, onClose, onSave }: RecurringPlanMo
                   {index + 1}
                 </Text>
                 {rows.length > 1 ? (
-                  <Button size="sm" variant="ghost" onPress={() => setRows((current) => current.filter((item) => item.id !== row.id))}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => setRows((current) => current.filter((item) => item.id !== row.id))}
+                  >
                     <X size={16} color={theme.text.tertiary} />
                   </Button>
                 ) : null}
@@ -207,9 +255,18 @@ export function RecurringPlanModal({ visible, onClose, onSave }: RecurringPlanMo
         </ScrollView>
 
         <View style={styles.actions}>
-          <Button variant="outline" size="sm" onPress={() => setRows((current) => [...current, newRow()])} icon={<Plus size={iconSize.sm} />}>
-            {t('planning.addRow')}
-          </Button>
+          {!isEditing ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={() => setRows((current) => [...current, newRow()])}
+              icon={<Plus size={iconSize.sm} />}
+            >
+              {t('planning.addRow')}
+            </Button>
+          ) : (
+            <View />
+          )}
           <Button onPress={handleSave} loading={saving} disabled={saving}>
             {t('common.save')}
           </Button>
@@ -220,10 +277,11 @@ export function RecurringPlanModal({ visible, onClose, onSave }: RecurringPlanMo
 }
 
 const styles = StyleSheet.create({
-  content: { gap: spacing.sm, maxHeight: '100%' },
+  content: { gap: spacing.sm, flexShrink: 1, minHeight: 0 },
   hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs },
   hint: { flex: 1, fontSize: typography.sizes.xs, lineHeight: typography.sizes.xs * typography.lineHeights.normal },
-  rowsScroll: { flexGrow: 0 },
+  rowsScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  rowsContent: { paddingBottom: spacing.xs },
   row: {
     gap: spacing.xs,
     padding: spacing.md,

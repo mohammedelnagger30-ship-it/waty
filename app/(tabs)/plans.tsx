@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,7 +16,7 @@ import {
   taskRepository,
 } from '@/src/storage';
 import { generateId, todayISODate } from '@/src/storage/repository';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, iconSize, bottomSpace } from '@/src/theme';
 import {
@@ -40,12 +40,17 @@ import {
   syncGoalProgress,
 } from '@/src/utils/goalUtils';
 import { toggleHabitDate } from '@/src/utils/habitUtils';
-import { cancelRecurringPlan, ensureRecurringTasks } from '@/src/utils/recurringUtils';
+import {
+  cancelRecurringPlan,
+  ensureRecurringTasks,
+  updateRecurringPlan,
+} from '@/src/utils/recurringUtils';
 import { rescheduleAllNotifications, scheduleHabitReminders, scheduleTaskReminders } from '@/src/notifications';
 
 type Section = 'goals' | 'plans' | 'habits' | 'recurring';
 
 export default function PlansScreen() {
+  const { dataVersion } = useAuth();
   const { theme } = useTheme();
   const { t, language } = useI18n();
   const router = useRouter();
@@ -65,7 +70,14 @@ export default function PlansScreen() {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringPlan | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const changeSection = useCallback((next: Section) => {
+    setSection(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
 
   const load = useCallback(async () => {
     const [storedGoals, storedPlans, storedHabits, storedRecurring, storedTasks] = await Promise.all([
@@ -98,7 +110,7 @@ export default function PlansScreen() {
 
   useEffect(() => {
     load().catch(() => {});
-  }, [load]);
+  }, [load, dataVersion]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -292,7 +304,9 @@ export default function PlansScreen() {
 
   const handleSaveRecurring = async (incoming: RecurringPlan[]) => {
     for (const plan of incoming) {
-      await recurringPlanRepository.create(plan);
+      const existing = await recurringPlanRepository.getById(plan.id);
+      if (existing) await updateRecurringPlan(plan);
+      else await recurringPlanRepository.create(plan);
     }
     await ensureRecurringTasks();
     try {
@@ -301,6 +315,7 @@ export default function PlansScreen() {
       // Notifications are optional on web.
     }
     setRecurringModal(false);
+    setEditingRecurring(null);
     await load();
   };
 
@@ -331,6 +346,7 @@ export default function PlansScreen() {
       setEditingHabit(null);
       setHabitModal(true);
     } else if (section === 'recurring') {
+      setEditingRecurring(null);
       setRecurringModal(true);
     } else {
       setEditingPlan(null);
@@ -403,6 +419,10 @@ export default function PlansScreen() {
         <RecurringPlanCard
           key={plan.id}
           plan={plan}
+          onEdit={() => {
+            setEditingRecurring(plan);
+            setRecurringModal(true);
+          }}
           onCancel={() => handleCancelRecurring(plan)}
         />
       ));
@@ -435,24 +455,32 @@ export default function PlansScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScreenHeader title={t('plans.title')} subtitle={t('plans.subtitle')} />
 
-      <View style={styles.segments}>
-        <Chip selected={section === 'goals'} onPress={() => setSection('goals')}>
+      <ScrollView
+        horizontal
+        style={styles.segmentsScroll}
+        contentContainerStyle={styles.segments}
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Chip selected={section === 'goals'} onPress={() => changeSection('goals')}>
           {t('plans.goalsTab')}
         </Chip>
-        <Chip selected={section === 'plans'} onPress={() => setSection('plans')}>
+        <Chip selected={section === 'plans'} onPress={() => changeSection('plans')}>
           {t('plans.plansTab')}
         </Chip>
-        <Chip selected={section === 'habits'} onPress={() => setSection('habits')}>
+        <Chip selected={section === 'habits'} onPress={() => changeSection('habits')}>
           {t('plans.habitsTab')}
         </Chip>
-        <Chip selected={section === 'recurring'} onPress={() => setSection('recurring')}>
+        <Chip selected={section === 'recurring'} onPress={() => changeSection('recurring')}>
           {t('plans.recurringTab')}
         </Chip>
-      </View>
+      </ScrollView>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {renderContent()}
@@ -491,7 +519,11 @@ export default function PlansScreen() {
       />
       <RecurringPlanModal
         visible={recurringModal}
-        onClose={() => setRecurringModal(false)}
+        editingPlan={editingRecurring}
+        onClose={() => {
+          setRecurringModal(false);
+          setEditingRecurring(null);
+        }}
         onSave={handleSaveRecurring}
       />
       <GoalDetailModal
@@ -518,9 +550,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  segmentsScroll: {
+    flexGrow: 0,
+  },
   segments: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,

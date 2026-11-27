@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { Task, TaskReminder, ReminderOffset, NotificationSettings, AlarmSoundId } from '@/src/storage/entities';
-import { taskRepository, reminderRepository, notificationSettingsRepository, habitRepository } from '@/src/storage';
+import { taskRepository, reminderRepository, notificationSettingsRepository, habitRepository, subscribeToSettings } from '@/src/storage';
 import { generateId } from '@/src/storage/repository';
 import { completeRepeatingTask, getUnmetDependencies } from '@/src/utils/taskUtils';
 import { isHabitCompletedOn, isHabitDueOn } from '@/src/utils/habitUtils';
@@ -38,6 +38,132 @@ function formatClock(hour: number, minute: number): string {
 // used for QA, so keep scheduling best-effort there instead of throwing.
 const NOTIFICATIONS_AVAILABLE = Platform.OS !== 'web';
 
+// Rapid task edits used to reschedule three derived notifications each time.
+// Coalesce them into one native pass per short window.
+const DERIVED_DEBOUNCE_MS = 120;
+let derivedTimer: ReturnType<typeof setTimeout> | null = null;
+let derivedRunning = false;
+let derivedQueued = false;
+let derivedResolvers: Array<() => void> = [];
+
+function scheduleDerivedTimer(): void {
+  if (derivedTimer) return;
+  derivedTimer = setTimeout(() => {
+    derivedTimer = null;
+    if (derivedRunning) {
+      derivedQueued = true;
+      return;
+    }
+    void (async () => {
+      derivedRunning = true;
+      try {
+        await refreshTaskDerivedNotifications();
+      } catch {
+        // Best effort; a later edit will try again.
+      } finally {
+        derivedRunning = false;
+        if (derivedQueued) {
+          derivedQueued = false;
+          scheduleDerivedTimer();
+        } else {
+          const resolvers = derivedResolvers;
+          derivedResolvers = [];
+          resolvers.forEach((resolve) => resolve());
+        }
+      }
+    })();
+  }, DERIVED_DEBOUNCE_MS);
+}
+
+/** Runs the derived summary/overdue/nudge refresh at most once per window. */
+function requestDerivedRefresh(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    derivedResolvers.push(resolve);
+    scheduleDerivedTimer();
+  });
+}
+
+// A full reschedule is only needed when task/settings data actually changes or
+// the local day rolls over. Otherwise returning to the foreground can skip the
+// expensive native cancel/recreate cycle.
+let notificationStateVersion = 0;
+let lastRescheduledVersion = -1;
+let lastRescheduledDate = '';
+
+// A settings/task edit marks notifications dirty. Coalesce the resulting full
+// rebuild so a burst of toggles cannot trigger a native cancel/schedule storm.
+const FULL_RESCHEDULE_DEBOUNCE_MS = 240;
+let fullRescheduleTimer: ReturnType<typeof setTimeout> | null = null;
+
+// An account switch invalidates any in-flight native scheduling. Without a
+// generation check, a reschedule started for the previous account could finish
+// after the switch and mark the new account as already scheduled.
+let notificationGeneration = 0;
+let activeReschedule: Promise<void> | null = null;
+let activeDerived: Promise<void> | null = null;
+
+function isCurrentNotificationGeneration(generation: number): boolean {
+  return generation === notificationGeneration;
+}
+
+function scheduleFullReschedule(): void {
+  if (!NOTIFICATIONS_AVAILABLE || fullRescheduleTimer) return;
+  fullRescheduleTimer = setTimeout(() => {
+    fullRescheduleTimer = null;
+    if (!needsFullNotificationReschedule()) return;
+    void rescheduleAllNotifications().catch(() => {
+      // A later foreground/edit pass will retry.
+    });
+  }, FULL_RESCHEDULE_DEBOUNCE_MS);
+}
+
+export function markNotificationsDirty(): void {
+  notificationStateVersion += 1;
+  scheduleFullReschedule();
+}
+
+export function needsFullNotificationReschedule(): boolean {
+  return (
+    notificationStateVersion !== lastRescheduledVersion ||
+    localDateString(new Date()) !== lastRescheduledDate
+  );
+}
+
+function markRescheduled(): void {
+  lastRescheduledVersion = notificationStateVersion;
+  lastRescheduledDate = localDateString(new Date());
+}
+
+/** Clears every scheduled alert before switching to a different account. */
+export async function clearAllNotifications(): Promise<void> {
+  notificationGeneration += 1;
+  if (fullRescheduleTimer) {
+    clearTimeout(fullRescheduleTimer);
+    fullRescheduleTimer = null;
+  }
+  if (derivedTimer) {
+    clearTimeout(derivedTimer);
+    derivedTimer = null;
+  }
+  derivedQueued = false;
+  derivedResolvers.splice(0).forEach((resolve) => resolve());
+  // Let work already talking to the native scheduler finish before clearing,
+  // so it cannot recreate alerts for the previous user afterwards.
+  await activeReschedule?.catch(() => {});
+  await activeDerived?.catch(() => {});
+  await cancelAllScheduled();
+  if (NOTIFICATIONS_AVAILABLE) {
+    try {
+      await Notifications.dismissAllNotificationsAsync();
+    } catch {
+      // No delivered notifications to remove.
+    }
+  }
+  notificationStateVersion += 1;
+  lastRescheduledVersion = -1;
+  lastRescheduledDate = '';
+}
+
 async function cancelNotification(id: string): Promise<void> {
   if (!NOTIFICATIONS_AVAILABLE) return;
   try {
@@ -59,7 +185,8 @@ async function cancelAllScheduled(): Promise<void> {
 type ScheduleRequest = Parameters<typeof Notifications.scheduleNotificationAsync>[0];
 
 async function scheduleNotification(request: ScheduleRequest): Promise<string | null> {
-  if (!NOTIFICATIONS_AVAILABLE) return null;
+  const generation = notificationGeneration;
+  if (!NOTIFICATIONS_AVAILABLE || !isCurrentNotificationGeneration(generation)) return null;
   try {
     return await Notifications.scheduleNotificationAsync(request);
   } catch {
@@ -374,38 +501,37 @@ async function scheduleOneReminder(
 async function cancelTaskRemindersInternal(taskId: string): Promise<void> {
   const reminders = await reminderRepository.getAll();
   const taskReminders = reminders.filter((r) => r.taskId === taskId);
-  for (const r of taskReminders) {
-    if (r.scheduledId) {
-      try {
-        await cancelNotification(r.scheduledId);
-      } catch {
-        // Already fired or removed by the OS.
-      }
-    }
-    await reminderRepository.delete(r.id);
-  }
+  await Promise.all(
+    taskReminders.map((r) =>
+      r.scheduledId ? cancelNotification(r.scheduledId) : Promise.resolve(),
+    ),
+  );
+  await reminderRepository.deleteMany(taskReminders.map((r) => r.id));
 }
 
 export async function cancelTaskReminders(taskId: string): Promise<void> {
   await cancelTaskRemindersInternal(taskId);
-  await refreshTaskDerivedNotifications();
+  markNotificationsDirty();
+  await requestDerivedRefresh();
 }
 
 export async function scheduleTaskReminders(task: Task): Promise<void> {
   // Always clear old reminders first, even when the task is now done,
   // untimed or notifications were switched off. This prevents phantom alarms.
   await cancelTaskRemindersInternal(task.id);
+  markNotificationsDirty();
 
   const notifSettings = await notificationSettingsRepository.getOrCreate();
   const inactive = task.status === 'done' || task.status === 'cancelled';
   if (!notifSettings.enabled || inactive || !parseClock(task.time)) {
-    await refreshTaskDerivedNotifications();
+    await requestDerivedRefresh();
     return;
   }
 
   // undefined = follow global defaults; an explicit [] means "no reminder".
   const offsets = task.reminderOffsets ?? notifSettings.defaultReminders;
 
+  const reminders: TaskReminder[] = [];
   for (const offset of offsets) {
     const reminder: TaskReminder = {
       id: generateId(),
@@ -428,11 +554,12 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
 
     if (scheduledId) {
       reminder.scheduledId = scheduledId;
-      await reminderRepository.create(reminder);
+      reminders.push(reminder);
     }
   }
+  if (reminders.length > 0) await reminderRepository.createMany(reminders);
 
-  await refreshTaskDerivedNotifications();
+  await requestDerivedRefresh();
 }
 
 export async function rescheduleTaskReminders(task: Task): Promise<void> {
@@ -591,12 +718,24 @@ export async function scheduleOverdueCheck(): Promise<void> {
 }
 
 /** Refreshes notifications whose content depends on the current task list. */
-export async function refreshTaskDerivedNotifications(): Promise<void> {
+async function refreshDerivedFor(generation: number): Promise<void> {
   await Promise.all([
     scheduleMorningSummary(),
     scheduleOverdueCheck(),
     scheduleUntimedTaskNudge(),
   ]);
+  if (!isCurrentNotificationGeneration(generation)) return;
+}
+
+export async function refreshTaskDerivedNotifications(): Promise<void> {
+  const generation = notificationGeneration;
+  const work = refreshDerivedFor(generation);
+  activeDerived = work;
+  try {
+    await work;
+  } finally {
+    if (activeDerived === work) activeDerived = null;
+  }
 }
 
 // --- Habit reminders ---
@@ -741,8 +880,9 @@ export async function notifyFocusSessionComplete(taskTitle?: string): Promise<vo
   });
 }
 
-export async function rescheduleAllNotifications(): Promise<void> {
+async function rescheduleFor(generation: number): Promise<void> {
   const settings = await notificationSettingsRepository.getOrCreate();
+  if (!isCurrentNotificationGeneration(generation)) return;
   if (!settings.enabled) {
     await cancelAllReminders();
     await cancelNotification('morning_summary');
@@ -751,6 +891,7 @@ export async function rescheduleAllNotifications(): Promise<void> {
     await cancelNotification('habit_reminder');
     await cancelNotification(UNTIMED_NUDGE_ID);
     await cancelNotification(WEEKLY_BACKUP_ID);
+    if (isCurrentNotificationGeneration(generation)) markRescheduled();
     return;
   }
 
@@ -765,6 +906,7 @@ export async function rescheduleAllNotifications(): Promise<void> {
   if (existing.length > 0) await reminderRepository.replaceAll([]);
 
   const allTasks = await taskRepository.getAll();
+  if (!isCurrentNotificationGeneration(generation)) return;
   const activeTasks = allTasks.filter(
     (t) => t.status !== 'done' && t.status !== 'cancelled' && parseClock(t.time),
   );
@@ -783,6 +925,7 @@ export async function rescheduleAllNotifications(): Promise<void> {
   const freshReminders: TaskReminder[] = [];
 
   for (const task of activeTasks) {
+    if (!isCurrentNotificationGeneration(generation)) return;
     // undefined = follow global defaults; an explicit [] means "no reminder".
     const offsets = task.reminderOffsets ?? settings.defaultReminders;
     for (const offset of offsets) {
@@ -821,6 +964,19 @@ export async function rescheduleAllNotifications(): Promise<void> {
   await scheduleHabitReminders();
   await scheduleUntimedTaskNudge();
   await scheduleWeeklyBackupReminder();
+  if (isCurrentNotificationGeneration(generation)) markRescheduled();
+}
+
+/** Tracks full reschedules so an account switch can wait for them to finish. */
+export async function rescheduleAllNotifications(): Promise<void> {
+  const generation = notificationGeneration;
+  const work = rescheduleFor(generation);
+  activeReschedule = work;
+  try {
+    await work;
+  } finally {
+    if (activeReschedule === work) activeReschedule = null;
+  }
 }
 
 // --- Action handler ---
@@ -889,7 +1045,15 @@ export async function handleNotificationAction(
 
 // --- Init ---
 
+let settingsSubscription: (() => void) | null = null;
+
 export async function initNotifications(): Promise<void> {
+  // Settings changes (quiet hours, alarm sound, summary times, ...) alter
+  // scheduled notifications. Mark them dirty so the next foreground pass
+  // rebuilds only when needed instead of on every app open.
+  if (!settingsSubscription) {
+    settingsSubscription = subscribeToSettings(() => markNotificationsDirty());
+  }
   const granted = await requestNotificationPermissions();
   if (!granted) return;
 

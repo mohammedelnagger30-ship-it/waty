@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize, iconStroke, bottomSpace, useResponsive } from '@/src/theme';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -34,6 +34,7 @@ function toLocalISO(d: Date): string {
 }
 
 export default function CalendarScreen() {
+  const { dataVersion } = useAuth();
   const { theme } = useTheme();
   const responsive = useResponsive();
   const { t, language, isRTL } = useI18n();
@@ -47,7 +48,7 @@ export default function CalendarScreen() {
 
   useEffect(() => {
     taskRepository.getAll().then(setTasks).catch(() => {});
-  }, []);
+  }, [dataVersion]);
 
   const cells = useMemo(
     () => getMonthDays(cursor.year, cursor.month),

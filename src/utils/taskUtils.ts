@@ -167,23 +167,45 @@ export function sortTasks(tasks: Task[], sort: SortOption): Task[] {
   return sorted;
 }
 
-/** Follows the `dependsOn` graph; used to reject circular dependencies. */
-export function dependsOnReaches(fromId: string, targetId: string, tasks: Task[]): boolean {
+function reachesInIndex(fromId: string, targetId: string, byId: Map<string, Task>): boolean {
   const seen = new Set<string>();
   const walk = (id: string): boolean => {
     if (id === targetId) return true;
     if (seen.has(id)) return false;
     seen.add(id);
-    const task = tasks.find((item) => item.id === id);
-    return (task?.dependsOn ?? []).some(walk);
+    return (byId.get(id)?.dependsOn ?? []).some(walk);
   };
   return walk(fromId);
 }
 
+/** Follows the `dependsOn` graph; used to reject circular dependencies. */
+export function dependsOnReaches(fromId: string, targetId: string, tasks: Task[]): boolean {
+  return reachesInIndex(fromId, targetId, indexTasksById(tasks));
+}
+
+/** Dependency check that reuses an index across many candidates. */
+export function dependsOnReachesInIndex(
+  fromId: string,
+  targetId: string,
+  byId: Map<string, Task>,
+): boolean {
+  return reachesInIndex(fromId, targetId, byId);
+}
+
+/** Index tasks once when several dependency checks run in the same pass. */
+export function indexTasksById(tasks: Task[]): Map<string, Task> {
+  return new Map(tasks.map((task) => [task.id, task]));
+}
+
 /** Returns blockers that are not done yet. */
-export function getUnmetDependencies(task: Task, tasks: Task[]): Task[] {
+export function getUnmetDependencies(
+  task: Task,
+  tasks: Task[],
+  byId?: Map<string, Task>,
+): Task[] {
+  const index = byId ?? indexTasksById(tasks);
   return (task.dependsOn ?? [])
-    .map((id) => tasks.find((item) => item.id === id))
+    .map((id) => index.get(id))
     .filter((item): item is Task => !!item && item.status !== 'done');
 }
 
@@ -242,28 +264,46 @@ function minutesFromTime(time: string): number | null {
  * Tasks without a time, done tasks and cancelled tasks are ignored.
  */
 export function findScheduleConflicts(tasks: Task[]): Record<string, string[]> {
-  const timed = tasks
-    .filter((task) => task.status !== 'done' && task.status !== 'cancelled' && task.time)
-    .map((task) => {
-      const start = minutesFromTime(task.time!);
-      return start === null ? null : {
-        task,
-        start,
-        end: start + Math.max(15, task.estimatedMinutes ?? 30),
-      };
-    })
-    .filter((item): item is { task: Task; start: number; end: number } => item !== null);
+  type Interval = { task: Task; start: number; end: number };
+  const byDate = new Map<string, Interval[]>();
+
+  for (const task of tasks) {
+    if (task.status === 'done' || task.status === 'cancelled' || !task.time) continue;
+    const start = minutesFromTime(task.time);
+    if (start === null) continue;
+    const interval: Interval = {
+      task,
+      start,
+      end: start + Math.max(15, task.estimatedMinutes ?? 30),
+    };
+    const day = byDate.get(task.date);
+    if (day) day.push(interval);
+    else byDate.set(task.date, [interval]);
+  }
 
   const conflicts: Record<string, string[]> = {};
-  for (let i = 0; i < timed.length; i += 1) {
-    for (let j = i + 1; j < timed.length; j += 1) {
-      const a = timed[i];
-      const b = timed[j];
-      if (a.task.date !== b.task.date) continue;
-      if (a.start < b.end && b.start < a.end) {
-        (conflicts[a.task.id] ??= []).push(b.task.id);
-        (conflicts[b.task.id] ??= []).push(a.task.id);
+  const addConflict = (a: Task, b: Task) => {
+    (conflicts[a.id] ??= []).push(b.id);
+    (conflicts[b.id] ??= []).push(a.id);
+  };
+
+  // Compare only intervals on the same day, in start order. The active window
+  // is usually tiny, so this avoids comparing every task with every other task.
+  for (const day of byDate.values()) {
+    day.sort((a, b) => a.start - b.start || a.end - b.end);
+    const active: Interval[] = [];
+    for (const current of day) {
+      for (let index = active.length - 1; index >= 0; index -= 1) {
+        const previous = active[index];
+        if (previous.end <= current.start) {
+          active.splice(index, 1);
+          continue;
+        }
+        if (current.start < previous.end && previous.start < current.end) {
+          addConflict(previous.task, current.task);
+        }
       }
+      active.push(current);
     }
   }
   return conflicts;

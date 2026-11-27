@@ -86,6 +86,7 @@ export type TranslationKey =
   | 'tasks.swipePostpone'
   | 'tasks.swipeDelete'
   | 'tasks.confirmDelete'
+  | 'tasks.duplicate'
   | 'tasks.confirmDeleteMsg'
   | 'tasks.deleted'
   | 'tasks.selected'
@@ -275,6 +276,7 @@ export type TranslationKey =
   | 'plans.customPlan'
   | 'plans.recurringTab'
   | 'plans.newRecurring'
+  | 'plans.editRecurring'
   | 'plans.recurringDesc'
   | 'plans.recurringTitle'
   | 'plans.recurringTime'
@@ -450,6 +452,27 @@ export type TranslationKey =
   | 'settings.searchDesc'
   | 'settings.weeklyReview'
   | 'settings.weeklyReviewDesc'
+  | 'account.title'
+  | 'account.subtitle'
+  | 'account.email'
+  | 'account.password'
+  | 'account.signIn'
+  | 'account.signUp'
+  | 'account.signOut'
+  | 'account.syncNow'
+  | 'account.syncing'
+  | 'account.synced'
+  | 'account.syncError'
+  | 'account.offline'
+  | 'account.signedInAs'
+  | 'account.guest'
+  | 'account.guestDesc'
+  | 'account.notConfigured'
+  | 'account.confirmEmail'
+  | 'account.mergeDesc'
+  | 'account.lastSync'
+  | 'account.secureNote'
+  | 'account.error'
   | 'notfound.title'
   | 'notfound.msg'
   | 'notfound.back'
@@ -748,6 +771,7 @@ export const translations: Record<Language, Translations> = {
     'tasks.swipePostpone': 'تأجيل',
     'tasks.swipeDelete': 'حذف',
     'tasks.confirmDelete': 'تأكيد الحذف',
+    'tasks.duplicate': 'نسخ المهمة',
     'tasks.confirmDeleteMsg': 'هل أنت متأكد من حذف هذه المهمة؟',
     'tasks.deleted': 'تم حذف',
     'tasks.selected': 'محدد',
@@ -937,6 +961,7 @@ export const translations: Record<Language, Translations> = {
     'plans.customPlan': 'خطة مخصصة',
     'plans.recurringTab': 'متكررة',
     'plans.newRecurring': 'مهمة متكررة',
+    'plans.editRecurring': 'تعديل المهمة المتكررة',
     'plans.recurringDesc': 'اكتب المهمة واختار أيامها أو كل يومين. هتظهر في اليوم تلقائياً وهتستمر لغاية ما توقفها.',
     'plans.recurringTitle': 'اسم المهمة',
     'plans.recurringTime': 'الوقت',
@@ -1112,6 +1137,27 @@ export const translations: Record<Language, Translations> = {
     'settings.searchDesc': 'ابحث في كل المهام والأهداف والخطط',
     'settings.weeklyReview': 'المراجعة الأسبوعية',
     'settings.weeklyReviewDesc': 'راجع أسبوعك وسجل تأملاتك',
+    'account.title': 'الحساب السحابي',
+    'account.subtitle': 'زامن بياناتك بين أجهزتك',
+    'account.email': 'البريد الإلكتروني',
+    'account.password': 'كلمة المرور',
+    'account.signIn': 'تسجيل الدخول',
+    'account.signUp': 'إنشاء حساب',
+    'account.signOut': 'تسجيل الخروج',
+    'account.syncNow': 'مزامنة الآن',
+    'account.syncing': 'جاري المزامنة...',
+    'account.synced': 'تمت المزامنة',
+    'account.syncError': 'تعذّرت المزامنة. ستتم إعادة المحاولة عند فتح التطبيق.',
+    'account.offline': 'بدون اتصال — التغييرات محفوظة على الجهاز',
+    'account.signedInAs': 'مسجل الدخول كـ',
+    'account.guest': 'وضع الجهاز',
+    'account.guestDesc': 'بياناتك محفوظة على هذا الجهاز فقط. سجّل الدخول لمزامنتها وحمايتها.',
+    'account.notConfigured': 'الحسابات السحابية غير مفعّلة في هذه النسخة. أضف بيانات Supabase إلى ملف .env ثم أعد بناء التطبيق.',
+    'account.confirmEmail': 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتأكيده ثم سجّل الدخول.',
+    'account.mergeDesc': 'عند أول تسجيل دخول على هذا الجهاز، تُدمج بياناتك الحالية في الحساب الجديد تلقائيًا.',
+    'account.lastSync': 'آخر مزامنة',
+    'account.secureNote': 'تُستخدم مفاتيح القراءة العامة فقط، وتحمي قواعد Supabase بيانات كل حساب.',
+    'account.error': 'تعذّر إتمام العملية. تحقق من البيانات والاتصال.',
     'notfound.title': 'الصفحة غير موجودة',
     'notfound.msg': 'يبدو أنك وصلت إلى صفحة غير موجودة',
     'notfound.back': 'العودة للرئيسية',
@@ -1407,6 +1453,7 @@ export const translations: Record<Language, Translations> = {
     'tasks.swipePostpone': 'Postpone',
     'tasks.swipeDelete': 'Delete',
     'tasks.confirmDelete': 'Confirm Delete',
+    'tasks.duplicate': 'Duplicate task',
     'tasks.confirmDeleteMsg': 'Are you sure you want to delete this task?',
     'tasks.deleted': 'Deleted',
     'tasks.selected': 'Selected',
@@ -1596,6 +1643,7 @@ export const translations: Record<Language, Translations> = {
     'plans.customPlan': 'Custom plan',
     'plans.recurringTab': 'Recurring',
     'plans.newRecurring': 'Recurring task',
+    'plans.editRecurring': 'Edit recurring task',
     'plans.recurringDesc': 'Name the task and pick its weekdays or an every-N-days pattern. It appears in Today automatically and stays until you stop it.',
     'plans.recurringTitle': 'Task name',
     'plans.recurringTime': 'Time',
@@ -1771,6 +1819,27 @@ export const translations: Record<Language, Translations> = {
     'settings.searchDesc': 'Search all tasks, goals and plans',
     'settings.weeklyReview': 'Weekly Review',
     'settings.weeklyReviewDesc': 'Reflect on your week and record insights',
+    'account.title': 'Cloud account',
+    'account.subtitle': 'Keep your data in sync across devices',
+    'account.email': 'Email',
+    'account.password': 'Password',
+    'account.signIn': 'Sign in',
+    'account.signUp': 'Create account',
+    'account.signOut': 'Sign out',
+    'account.syncNow': 'Sync now',
+    'account.syncing': 'Syncing...',
+    'account.synced': 'Up to date',
+    'account.syncError': 'Sync failed. It will retry when the app opens.',
+    'account.offline': 'Offline — changes are saved on this device',
+    'account.signedInAs': 'Signed in as',
+    'account.guest': 'Device mode',
+    'account.guestDesc': 'Your data lives only on this device. Sign in to sync and protect it.',
+    'account.notConfigured': 'Cloud accounts are not enabled in this build. Add your Supabase values to .env and rebuild the app.',
+    'account.confirmEmail': 'Account created. Check your email to confirm it, then sign in.',
+    'account.mergeDesc': 'On first sign-in on this device, your existing local data is merged into the new account automatically.',
+    'account.lastSync': 'Last synced',
+    'account.secureNote': 'Only the public anon key is used. Supabase row-level security keeps each account separate.',
+    'account.error': 'Could not complete the request. Check your details and connection.',
     'notfound.title': 'Page not found',
     'notfound.msg': "Looks like you've reached a page that doesn't exist",
     'notfound.back': 'Back to home',

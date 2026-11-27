@@ -12,7 +12,7 @@ type Props = {
   onPressCell?: (cell: HeatCell) => void;
 };
 
-export function HeatmapGrid({ cells, size = 11, gap = 4, baseColor, levels, onPressCell }: Props) {
+function HeatmapGridImpl({ cells, size = 11, gap = 4, baseColor, levels, onPressCell }: Props) {
   const palette = levels?.length
     ? levels
     : [baseColor + '1F', baseColor + '55', baseColor + '99', baseColor];
@@ -44,4 +44,5 @@ export function HeatmapGrid({ cells, size = 11, gap = 4, baseColor, levels, onPr
 
 const styles = StyleSheet.create({ svg: { flexGrow: 0 } });
 
+export const HeatmapGrid = React.memo(HeatmapGridImpl);
 export default HeatmapGrid;

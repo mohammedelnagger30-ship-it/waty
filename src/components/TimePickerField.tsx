@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Clock, Minus, Plus } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -149,7 +149,11 @@ export function TimePickerField({
       </Pressable>
 
       <ModalSheet visible={visible} onClose={() => setVisible(false)} title={t('timePicker.title')}>
-        <View style={styles.sheet}>
+        <ScrollView
+          contentContainerStyle={styles.sheet}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={[styles.preview, { color: theme.primary[500], fontFamily: typography.fontFamilyBold }]}>
             {`${formatTime(previewHour, previewMinute)} ${previewHour < 12 ? t('timePicker.am') : t('timePicker.pm')}`}
           </Text>
@@ -195,7 +199,7 @@ export function TimePickerField({
             </Button>
             <Button onPress={confirm}>{t('timePicker.confirm')}</Button>
           </View>
-        </View>
+        </ScrollView>
       </ModalSheet>
     </>
   );

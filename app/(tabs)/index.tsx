@@ -30,7 +30,7 @@ import {
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
 import { taskRepository, settingsRepository, habitRepository } from '@/src/storage';
@@ -79,6 +79,7 @@ function DragHandle({ onMove, color }: { onMove: (delta: number) => void; color:
 }
 
 export default function TodayScreen() {
+  const { dataVersion } = useAuth();
   const { theme, isDark } = useTheme();
   const { t, language, isRTL } = useI18n();
   const router = useRouter();
@@ -120,7 +121,7 @@ export default function TodayScreen() {
   }, []);
 
   // Tabs stay mounted, so reload whenever this screen becomes visible.
-  useFocusEffect(useCallback(() => { void loadTasks(); }, [loadTasks]));
+  useFocusEffect(useCallback(() => { void loadTasks(); }, [loadTasks, dataVersion]));
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -146,14 +147,17 @@ export default function TodayScreen() {
   const handleSaveForm = async (task: Task) => {
     const existing = await taskRepository.getById(task.id);
     if (existing) {
-      await taskRepository.update(task.id, task);
+      const saved = await taskRepository.update(task.id, task);
+      if (!saved) return false;
       await notify(() => rescheduleTaskReminders(task));
     } else {
-      await taskRepository.create(task);
+      const saved = await taskRepository.create(task);
+      if (!saved) return false;
       await notify(() => scheduleTaskReminders(task));
     }
     setFormTask(null);
     await loadTasks();
+    return true;
   };
 
   const handleComplete = async (task: Task) => {

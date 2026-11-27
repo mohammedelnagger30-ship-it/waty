@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Plus } from 'lucide-react-native';
+import { useIsFocused } from '@react-navigation/native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -31,6 +32,8 @@ export function FAB({ onPress, icon, bottom = spacing.md, accessibilityLabel }: 
   const { t } = useI18n();
   const responsive = useResponsive();
   const reduced = useReducedMotion();
+  // Tabs stay mounted; only animate the FAB on the screen actually in view.
+  const focused = useIsFocused();
   const pulse = useSharedValue(0);
   const { onPressIn, onPressOut, style: pressStyle } = usePressAnimation({
     scaleTo: 0.9,
@@ -38,12 +41,12 @@ export function FAB({ onPress, icon, bottom = spacing.md, accessibilityLabel }: 
   });
 
   useEffect(() => {
-    if (reduced) {
+    if (reduced || !focused) {
       pulse.value = 0;
       return;
     }
     pulse.value = withRepeat(withTiming(1, HALO_TIMING), -1, true);
-  }, [reduced, pulse]);
+  }, [reduced, focused, pulse]);
 
   const haloStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + pulse.value * 0.32 }],

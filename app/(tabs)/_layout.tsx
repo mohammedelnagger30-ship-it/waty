@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -68,15 +68,22 @@ export default function TabLayout() {
   const responsive = useResponsive();
   const [tabOrder, setTabOrder] = useState<string[]>(TAB_DEFS.map((tab) => tab.name));
 
-  useEffect(() => {
-    const unsubscribe = subscribeToSettings((settings) => {
-      setTabOrder(normalizedTabOrder(settings));
-    });
-    void settingsRepository.getOrCreate().then((settings) => {
-      setTabOrder(normalizedTabOrder(settings));
-    });
-    return unsubscribe;
+  // Settings change often (theme, language, notifications). Only update when
+  // the order actually differs so screen options are not rebuilt every time.
+  const applyTabOrder = useCallback((settings?: Pick<Settings, 'tabOrder'> | null) => {
+    const next = normalizedTabOrder(settings);
+    setTabOrder((current) =>
+      current.length === next.length && current.every((name, index) => name === next[index])
+        ? current
+        : next,
+    );
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSettings(applyTabOrder);
+    void settingsRepository.getOrCreate().then(applyTabOrder);
+    return unsubscribe;
+  }, [applyTabOrder]);
 
   // Stable icon renderers: a new anonymous component type would remount all
   // five tab icons on every layout re-render.

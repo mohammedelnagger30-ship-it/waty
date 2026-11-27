@@ -22,16 +22,19 @@ export function ThemeProvider({ children, initialMode = 'system' }: { children: 
   const [mode, setModeState] = useState<ThemeMode>(initialMode);
   const [paletteId, setPaletteState] = useState<PaletteId>(DEFAULT_PALETTE);
   const loaded = useRef(false);
+  const persisted = useRef({ theme: initialMode, colorPalette: DEFAULT_PALETTE });
 
   useEffect(() => {
     settingsRepository.getOrCreate()
       .then((settings) => {
-        if (settings.theme === 'light' || settings.theme === 'dark' || settings.theme === 'system') {
-          setModeState(settings.theme);
-        }
-        if (isPaletteId(settings.colorPalette)) {
-          setPaletteState(settings.colorPalette);
-        }
+        const nextTheme =
+          settings.theme === 'light' || settings.theme === 'dark' || settings.theme === 'system'
+            ? settings.theme
+            : mode;
+        const nextPalette = isPaletteId(settings.colorPalette) ? settings.colorPalette : paletteId;
+        persisted.current = { theme: nextTheme, colorPalette: nextPalette };
+        setModeState(nextTheme);
+        setPaletteState(nextPalette);
       })
       .catch(() => {})
       .finally(() => { loaded.current = true; });
@@ -39,6 +42,8 @@ export function ThemeProvider({ children, initialMode = 'system' }: { children: 
 
   useEffect(() => {
     if (!loaded.current) return;
+    if (persisted.current.theme === mode && persisted.current.colorPalette === paletteId) return;
+    persisted.current = { theme: mode, colorPalette: paletteId };
     settingsRepository.patch({ theme: mode, colorPalette: paletteId }).catch(() => {});
   }, [mode, paletteId]);
 

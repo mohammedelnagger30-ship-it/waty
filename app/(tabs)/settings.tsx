@@ -23,10 +23,11 @@ import {
   Layers,
   Timer,
   Target,
+  Cloud,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useFontScale } from '@/src/context/FontScaleProvider';
 import { useI18n, Language } from '@/src/i18n';
 import { palettes, spacing, typography, radius, iconSize, type PaletteDefinition } from '@/src/theme';
@@ -154,6 +155,7 @@ function NavRow({ icon, title, description, onPress }: NavRowProps) {
 
 export default function SettingsScreen() {
   const keyboardInset = useKeyboardInset();
+  const { dataVersion } = useAuth();
   const { theme, mode, isDark, setMode, paletteId, setPalette } = useTheme();
   const {
     simpleModeEnabled,
@@ -175,7 +177,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+  }, [loadSettings, dataVersion]);
 
   const updateSettings = async (updates: Partial<Settings>) => {
     if (!settings) return;
@@ -348,6 +350,13 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.section}>
+          <NavRow
+            icon={<Cloud size={iconSize.lg} color={theme.info} />}
+            title={t('account.title')}
+            description={t('account.subtitle')}
+            onPress={() => router.push('/account')}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <NavRow
             icon={<Bell size={iconSize.lg} color={theme.primary[500]} />}
             title={t('notifications.title')}

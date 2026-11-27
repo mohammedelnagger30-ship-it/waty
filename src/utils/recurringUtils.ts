@@ -77,6 +77,24 @@ function buildOccurrence(plan: RecurringPlan, date: string): Task {
 }
 
 let ensureQueue: Promise<number> = Promise.resolve(0);
+// Avoid repeating the whole 30-day scan on every tab focus/foreground when no
+// plan changed. Edits update `updatedAt`, so the fingerprint invalidates.
+let lastRunKey: string | null = null;
+
+function planFingerprint(plans: RecurringPlan[], horizonDays: number): string {
+  return `${todayISODate()}|${horizonDays}|${plans
+    .map((plan) => [
+      plan.id,
+      plan.active !== false ? '1' : '0',
+      validAnchor(plan),
+      plan.mode,
+      (plan.weekdays ?? []).join(','),
+      plan.intervalDays ?? 0,
+      plan.time ?? '',
+      plan.updatedAt ?? '',
+    ].join(':'))
+    .join('|')}`;
+}
 
 /**
  * Materialises recurring occurrences from today through a short horizon.
@@ -85,39 +103,46 @@ let ensureQueue: Promise<number> = Promise.resolve(0);
  */
 export function ensureRecurringTasks(horizonDays: number = HORIZON_DAYS): Promise<number> {
   const run = async (): Promise<number> => {
-    const [plans, storedTasks] = await Promise.all([
-      recurringPlanRepository.getAll(),
-      taskRepository.getAll(),
-    ]);
+    const plans = await recurringPlanRepository.getAll();
     const active = plans.filter((plan) => plan.active !== false);
-    if (active.length === 0) return 0;
+    if (active.length === 0) {
+      lastRunKey = null;
+      return 0;
+    }
+
+    const horizon = Math.max(0, horizonDays);
+    const fingerprint = planFingerprint(plans, horizon);
+    if (fingerprint === lastRunKey) return 0;
 
     const today = todayISODate();
-    const end = addDaysISO(today, Math.max(0, horizonDays));
+    const end = addDaysISO(today, horizon);
+    const storedTasks = await taskRepository.getAll();
     const existing = new Set(
       storedTasks
         .filter((task) => task.recurringPlanId)
         .map((task) => `${task.recurringPlanId}|${task.date}`),
     );
-    let created = 0;
+    const createdTasks: Task[] = [];
 
     for (const plan of active) {
       const anchor = validAnchor(plan);
       let cursor = anchor > today ? anchor : today;
-      while (cursor <= end && created < MAX_OCCURRENCES_PER_RUN) {
+      while (cursor <= end && createdTasks.length < MAX_OCCURRENCES_PER_RUN) {
         if (matchesRecurringPlan(plan, cursor)) {
           const key = `${plan.id}|${cursor}`;
           if (!existing.has(key)) {
-            const task = buildOccurrence(plan, cursor);
-            await taskRepository.create(task);
+            createdTasks.push(buildOccurrence(plan, cursor));
             existing.add(key);
-            created += 1;
           }
         }
         cursor = addDaysISO(cursor, 1);
       }
     }
-    return created;
+
+    const added = await taskRepository.createMany(createdTasks);
+    // Never cache a capped run: a later pass must be able to finish the horizon.
+    if (createdTasks.length < MAX_OCCURRENCES_PER_RUN) lastRunKey = fingerprint;
+    return added.length;
   };
 
   ensureQueue = ensureQueue.catch(() => 0).then(run);
@@ -127,11 +152,28 @@ export function ensureRecurringTasks(horizonDays: number = HORIZON_DAYS): Promis
 /** Stops a whole recurring series; completed occurrences stay as history. */
 export async function cancelRecurringPlan(id: string): Promise<void> {
   await recurringPlanRepository.update(id, { active: false });
+  lastRunKey = null;
   const tasks = await taskRepository.getAll();
-  for (const task of tasks) {
-    if (task.recurringPlanId !== id) continue;
+  const removable = tasks
+    .filter((task) => task.recurringPlanId === id)
     // Keep completed/cancelled instances so past progress is not erased.
-    if (task.status === 'done' || task.status === 'cancelled') continue;
-    await taskRepository.delete(task.id);
-  }
+    .filter((task) => task.status !== 'done' && task.status !== 'cancelled')
+    .map((task) => task.id);
+  await taskRepository.deleteMany(removable);
+}
+
+/**
+ * Applies schedule edits to a recurring series. Future unfinished occurrences
+ * are regenerated from the new rule; past/completed history is preserved.
+ */
+export async function updateRecurringPlan(plan: RecurringPlan): Promise<void> {
+  await recurringPlanRepository.update(plan.id, plan);
+  lastRunKey = null;
+  const today = todayISODate();
+  const tasks = await taskRepository.getAll();
+  const removable = tasks
+    .filter((task) => task.recurringPlanId === plan.id && task.date >= today)
+    .filter((task) => task.status !== 'done' && task.status !== 'cancelled')
+    .map((task) => task.id);
+  await taskRepository.deleteMany(removable);
 }

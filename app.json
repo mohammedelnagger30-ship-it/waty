@@ -2,8 +2,8 @@
   "expo": {
     "name": "Orbit",
     "slug": "orbit",
-    "version": "1.7.0",
-    "orientation": "portrait",
+    "version": "1.8.0",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "waqty",
     "userInterfaceStyle": "automatic",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.waqty.app",
-      "versionCode": 11
+      "versionCode": 12
     },
     "web": {
       "bundler": "metro",

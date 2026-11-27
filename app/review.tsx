@@ -23,7 +23,7 @@ import {
   BookOpen,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useKeyboardInset } from '@/src/hooks/useKeyboardInset';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
@@ -50,6 +50,7 @@ const MOODS: {
 
 export default function DailyReviewScreen() {
   const keyboardInset = useKeyboardInset();
+  const { dataVersion } = useAuth();
   const { theme, isDark } = useTheme();
   const { t, language } = useI18n();
   const router = useRouter();
@@ -83,7 +84,7 @@ export default function DailyReviewScreen() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, dataVersion]);
 
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === 'done'), [tasks]);
   const notCompletedTasks = useMemo(

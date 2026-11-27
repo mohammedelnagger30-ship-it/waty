@@ -24,7 +24,7 @@ import {
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, bottomSpace } from '@/src/theme';
 import { Card, Toggle, Chip, Button, TimePickerField, LoadingState, ScreenHeader } from '@/src/components';
@@ -32,7 +32,7 @@ import { notificationSettingsRepository } from '@/src/storage';
 import { NotificationSettings, ReminderOffset, AlarmSoundId } from '@/src/storage/entities';
 import {
   requestNotificationPermissions,
-  rescheduleAllNotifications,
+  markNotificationsDirty,
   previewAlarm,
   ALARM_PRESETS,
   NOTIF_CHANNELS,
@@ -52,6 +52,7 @@ const reminderLabelKeys: Record<ReminderOffset, string> = {
 };
 
 export default function NotificationSettingsScreen() {
+  const { dataVersion } = useAuth();
   const { theme } = useTheme();
   const { t, language } = useI18n();
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function NotificationSettingsScreen() {
 
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+  }, [loadSettings, dataVersion]);
 
   const updateSettings = async (updates: Partial<NotificationSettings>) => {
     if (!settings) return;
@@ -92,7 +93,7 @@ export default function NotificationSettingsScreen() {
       setHasPermission(true);
     }
     await updateSettings({ enabled: value });
-    await rescheduleAllNotifications();
+    markNotificationsDirty();
   };
 
   const handleToggleReminder = async (offset: ReminderOffset) => {
@@ -103,7 +104,7 @@ export default function NotificationSettingsScreen() {
       ? current.filter((r) => r !== offset)
       : [...current, offset];
     await updateSettings({ defaultReminders: next });
-    await rescheduleAllNotifications();
+    markNotificationsDirty();
   };
 
   const handleTestNotification = async () => {
@@ -159,7 +160,7 @@ export default function NotificationSettingsScreen() {
                 if (granted) {
                   setHasPermission(true);
                   await updateSettings({ enabled: true });
-                  await rescheduleAllNotifications();
+                  markNotificationsDirty();
                 }
               }}
               style={{ marginTop: spacing.sm }}
@@ -232,7 +233,7 @@ export default function NotificationSettingsScreen() {
               value={settings.morningSummaryEnabled}
               onValueChange={async (v) => {
                 await updateSettings({ morningSummaryEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -242,7 +243,7 @@ export default function NotificationSettingsScreen() {
               value={settings.morningSummaryTime}
               onChange={async (v) => {
                 await updateSettings({ morningSummaryTime: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           )}
@@ -266,7 +267,7 @@ export default function NotificationSettingsScreen() {
               value={settings.eveningReviewEnabled}
               onValueChange={async (v) => {
                 await updateSettings({ eveningReviewEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -276,7 +277,7 @@ export default function NotificationSettingsScreen() {
               value={settings.eveningReviewTime}
               onChange={async (v) => {
                 await updateSettings({ eveningReviewTime: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           )}
@@ -300,7 +301,7 @@ export default function NotificationSettingsScreen() {
               value={settings.overdueReminderEnabled}
               onValueChange={async (v) => {
                 await updateSettings({ overdueReminderEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -310,7 +311,7 @@ export default function NotificationSettingsScreen() {
               value={settings.overdueReminderTime}
               onChange={async (v) => {
                 await updateSettings({ overdueReminderTime: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           )}
@@ -334,7 +335,7 @@ export default function NotificationSettingsScreen() {
               value={settings.dailyHabitReminderEnabled}
               onValueChange={async (v) => {
                 await updateSettings({ dailyHabitReminderEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -344,7 +345,7 @@ export default function NotificationSettingsScreen() {
               value={settings.habitReminderTime}
               onChange={async (v) => {
                 await updateSettings({ habitReminderTime: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           )}
@@ -368,7 +369,7 @@ export default function NotificationSettingsScreen() {
               value={settings.untimedTaskReminderEnabled ?? true}
               onValueChange={async (v) => {
                 await updateSettings({ untimedTaskReminderEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -378,7 +379,7 @@ export default function NotificationSettingsScreen() {
               value={settings.untimedTaskReminderTime ?? '16:00'}
               onChange={async (v) => {
                 await updateSettings({ untimedTaskReminderTime: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           )}
@@ -402,7 +403,7 @@ export default function NotificationSettingsScreen() {
               value={settings.weeklyBackupReminderEnabled ?? false}
               onValueChange={async (v) => {
                 await updateSettings({ weeklyBackupReminderEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -412,7 +413,7 @@ export default function NotificationSettingsScreen() {
               value={settings.weeklyBackupTime ?? '20:00'}
               onChange={async (v) => {
                 await updateSettings({ weeklyBackupTime: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           ) : null}
@@ -439,7 +440,7 @@ export default function NotificationSettingsScreen() {
               value={settings.quietHoursEnabled}
               onValueChange={async (v) => {
                 await updateSettings({ quietHoursEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -450,7 +451,7 @@ export default function NotificationSettingsScreen() {
                 value={settings.quietHoursStart}
                 onChange={async (v) => {
                   await updateSettings({ quietHoursStart: v });
-                  await rescheduleAllNotifications();
+                  markNotificationsDirty();
                 }}
                 />
               <View style={{ width: spacing.md }} />
@@ -459,7 +460,7 @@ export default function NotificationSettingsScreen() {
                 value={settings.quietHoursEnd}
                 onChange={async (v) => {
                   await updateSettings({ quietHoursEnd: v });
-                  await rescheduleAllNotifications();
+                  markNotificationsDirty();
                 }}
                 />
             </View>
@@ -487,7 +488,7 @@ export default function NotificationSettingsScreen() {
               value={settings.soundEnabled}
               onValueChange={async (v) => {
                 await updateSettings({ soundEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -508,7 +509,7 @@ export default function NotificationSettingsScreen() {
               value={settings.vibrationEnabled}
               onValueChange={async (v) => {
                 await updateSettings({ vibrationEnabled: v });
-                await rescheduleAllNotifications();
+                markNotificationsDirty();
               }}
             />
           </View>
@@ -538,7 +539,7 @@ export default function NotificationSettingsScreen() {
                 selected={(settings.alarmSound ?? ALARM_PRESETS[0].id) === preset.id}
                 onPress={async () => {
                   await updateSettings({ alarmSound: preset.id as AlarmSoundId });
-                  await rescheduleAllNotifications();
+                  markNotificationsDirty();
                 }}
               >
                 {t(preset.labelKey as Parameters<typeof t>[0])}

@@ -216,6 +216,8 @@ export interface Settings {
   savedFilters?: SavedFilter[];
   /** Ordered tab names used by the bottom navigation. */
   tabOrder?: string[];
+  /** Cloud last-write-wins timestamp. */
+  updatedAt?: string;
 }
 
 export type ReminderOffset = 'at_time' | '5' | '10' | '15' | '30' | '60' | 'custom';
@@ -257,6 +259,8 @@ export interface NotificationSettings {
   weeklyBackupReminderEnabled?: boolean;
   weeklyBackupDay?: number;
   weeklyBackupTime?: string;
+  /** Cloud last-write-wins timestamp. */
+  updatedAt?: string;
 }
 
 export interface PomodoroSession {

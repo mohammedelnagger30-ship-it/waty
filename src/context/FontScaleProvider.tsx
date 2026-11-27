@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { PixelRatio, View } from 'react-native';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { PixelRatio } from 'react-native';
 import { settingsRepository } from '@/src/storage';
 
 declare global {
@@ -38,6 +38,7 @@ export function FontScaleProvider({ children }: { children: ReactNode }) {
   const [simpleModeEnabled, setSimpleModeEnabledState] = useState(false);
   const [fontScaleMultiplier, setFontScaleMultiplierState] = useState(1.0);
   const [systemFontScale, setSystemFontScale] = useState(1.0);
+  const persisted = useRef({ simpleModeEnabled: false, fontScaleMultiplier: 1.0 });
 
   useEffect(() => {
     try {
@@ -53,6 +54,7 @@ export function FontScaleProvider({ children }: { children: ReactNode }) {
       .then((settings) => {
         const value = settings.simpleModeEnabled ?? false;
         const multiplier = settings.fontScaleMultiplier ?? 1.0;
+        persisted.current = { simpleModeEnabled: value, fontScaleMultiplier: multiplier };
         setSimpleModeEnabledState(value);
         setFontScaleMultiplierState(multiplier);
         applyGlobalFontScaling(value, value ? undefined : multiplier);
@@ -61,12 +63,16 @@ export function FontScaleProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setSimpleModeEnabled = useCallback((value: boolean) => {
+    if (persisted.current.simpleModeEnabled === value) return;
+    persisted.current = { ...persisted.current, simpleModeEnabled: value };
     setSimpleModeEnabledState(value);
-    applyGlobalFontScaling(value, value ? undefined : 1.0);
+    applyGlobalFontScaling(value, value ? undefined : persisted.current.fontScaleMultiplier);
     settingsRepository.patch({ simpleModeEnabled: value }).catch(() => {});
   }, []);
 
   const setFontScaleMultiplier = useCallback((value: number) => {
+    if (persisted.current.fontScaleMultiplier === value) return;
+    persisted.current = { ...persisted.current, fontScaleMultiplier: value };
     setFontScaleMultiplierState(value);
     if (!simpleModeEnabled) {
       globalThis.__MAX_FONT_SIZE_MULTIPLIER__ = value;
@@ -96,11 +102,11 @@ export function FontScaleProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  // Do not key this subtree. Font-scale settings only change a handful of
+  // consumers; remounting every screen made navigation feel heavy.
   return (
     <FontScaleContext.Provider value={value}>
-      <View style={{ flex: 1 }} key={`${String(simpleModeEnabled)}-${fontScaleMultiplier}`}>
-        {children}
-      </View>
+      {children}
     </FontScaleContext.Provider>
   );
 }

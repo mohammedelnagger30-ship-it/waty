@@ -1,5 +1,5 @@
 import { Task, Goal, Plan, RecurringPlan, Habit, DailyReview, Settings, PomodoroSession, TaskReminder, NotificationSettings, WeeklyReview, TaskTemplate } from './entities';
-import { createRepository, invalidateRepositoryCache, Repository } from './repository';
+import { createRepository, getActiveNamespace, invalidateRepositoryCache, nowISO, Repository } from './repository';
 
 export const taskRepository: Repository<Task> = createRepository<Task>('tasks');
 export const goalRepository: Repository<Goal> = createRepository<Goal>('goals');
@@ -25,9 +25,9 @@ export const notificationSettingsRepository = {
   async save(settings: Omit<NotificationSettings, 'id'>): Promise<NotificationSettings> {
     const existing = await this.getById(NOTIF_SETTINGS_ID);
     if (existing) {
-      return (await this.update(NOTIF_SETTINGS_ID, settings))!;
+      return (await this.update(NOTIF_SETTINGS_ID, { ...settings, updatedAt: nowISO() }))!;
     }
-    return this.create({ ...settings, id: NOTIF_SETTINGS_ID });
+    return this.create({ ...settings, id: NOTIF_SETTINGS_ID, updatedAt: nowISO() });
   },
 
   async getOrCreate(): Promise<NotificationSettings> {
@@ -69,6 +69,7 @@ export function defaultNotificationSettings(): Omit<NotificationSettings, 'id'> 
     weeklyBackupReminderEnabled: false,
     weeklyBackupDay: 1,
     weeklyBackupTime: '20:00',
+    updatedAt: nowISO(),
   };
 }
 
@@ -86,6 +87,7 @@ export function defaultSettings(): Omit<Settings, 'id'> {
     breakMinutes: 5,
     longBreakMinutes: 15,
     autoStartNextPhase: false,
+    updatedAt: nowISO(),
   };
 }
 
@@ -114,8 +116,12 @@ function notifySettingsChanged(settings: Settings): void {
   });
 }
 
-function queueSettingsWrite<T>(work: () => Promise<T>): Promise<T> {
-  const result = settingsWriteQueue.then(work, work);
+function queueSettingsWrite<T>(work: (namespace: string) => Promise<T>): Promise<T> {
+  // Capture the namespace while enqueueing. A patch made just before a user
+  // switch must land in that user's storage, never in the next account's.
+  const namespace = getActiveNamespace();
+  const run = () => work(namespace);
+  const result = settingsWriteQueue.then(run, run);
   settingsWriteQueue = result.catch(() => undefined);
   return result;
 }
@@ -129,10 +135,10 @@ export const settingsRepository = {
 
   getOrCreate(): Promise<Settings> {
     if (!settingsInit) {
-      settingsInit = queueSettingsWrite(async () => {
-        const existing = await this.getById(SETTINGS_ID);
+      settingsInit = queueSettingsWrite(async (namespace) => {
+        const existing = await this.getById(SETTINGS_ID, namespace);
         if (existing) return existing;
-        return this.create({ ...defaultSettings(), id: SETTINGS_ID });
+        return this.create({ ...defaultSettings(), id: SETTINGS_ID }, namespace);
       }).catch((error) => {
         settingsInit = null;
         throw error;
@@ -142,11 +148,11 @@ export const settingsRepository = {
   },
 
   async save(settings: Omit<Settings, 'id'>): Promise<Settings> {
-    return queueSettingsWrite(async () => {
-      const existing = await this.getById(SETTINGS_ID);
+    return queueSettingsWrite(async (namespace) => {
+      const existing = await this.getById(SETTINGS_ID, namespace);
       const saved = existing
-        ? (await this.update(SETTINGS_ID, settings))!
-        : await this.create({ ...settings, id: SETTINGS_ID });
+        ? (await this.update(SETTINGS_ID, { ...settings, updatedAt: nowISO() }, namespace))!
+        : await this.create({ ...settings, id: SETTINGS_ID, updatedAt: nowISO() }, namespace);
       // getOrCreate() caches a promise; keep it pointing at the saved value.
       settingsInit = Promise.resolve(saved);
       notifySettingsChanged(saved);
@@ -156,11 +162,11 @@ export const settingsRepository = {
 
   /** Updates only the given fields against the latest stored settings. */
   async patch(updates: Partial<Omit<Settings, 'id'>>): Promise<Settings> {
-    return queueSettingsWrite(async () => {
-      const existing = await this.getById(SETTINGS_ID);
+    return queueSettingsWrite(async (namespace) => {
+      const existing = await this.getById(SETTINGS_ID, namespace);
       const saved = existing
-        ? (await this.update(SETTINGS_ID, updates))!
-        : await this.create({ ...defaultSettings(), ...updates, id: SETTINGS_ID });
+        ? (await this.update(SETTINGS_ID, { ...updates, updatedAt: nowISO() }, namespace))!
+        : await this.create({ ...defaultSettings(), ...updates, id: SETTINGS_ID, updatedAt: nowISO() }, namespace);
       settingsInit = Promise.resolve(saved);
       notifySettingsChanged(saved);
       return saved;

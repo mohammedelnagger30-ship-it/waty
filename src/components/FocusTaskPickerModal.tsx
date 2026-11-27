@@ -2,7 +2,7 @@ import { View, StyleSheet, Text, ScrollView, Pressable } from 'react-native';
 import { Clock, Play } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, useResponsive } from '@/src/theme';
 import { ModalSheet } from './ModalSheet';
 import { Task } from '@/src/storage/entities';
 import { categoryColors } from '@/src/utils/taskUtils';
@@ -19,6 +19,7 @@ interface FocusTaskPickerModalProps {
 export function FocusTaskPickerModal({ visible, onClose, tasks, onSelect, title }: FocusTaskPickerModalProps) {
   const { theme } = useTheme();
   const { t } = useI18n();
+  const responsive = useResponsive();
 
   return (
     <ModalSheet visible={visible} onClose={onClose} title={title ?? t('today.startFocus')}>
@@ -32,7 +33,11 @@ export function FocusTaskPickerModal({ visible, onClose, tasks, onSelect, title 
           </Text>
         </View>
       ) : (
-        <ScrollView style={styles.list} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={[styles.list, { maxHeight: responsive.isShortLandscape ? 220 : 420 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {tasks.map((task) => (
             <Pressable
               key={task.id}

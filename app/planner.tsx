@@ -15,7 +15,7 @@ import {
   LayoutGrid,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize, iconStroke, bottomSpace } from '@/src/theme';
 import { taskRepository } from '@/src/storage';
@@ -64,6 +64,7 @@ function getWorkloadLevel(count: number): 'light' | 'balanced' | 'overloaded' {
 }
 
 export default function PlannerScreen() {
+  const { dataVersion } = useAuth();
   const { theme, isDark } = useTheme();
   const { t, language, isRTL } = useI18n();
   const router = useRouter();
@@ -91,7 +92,7 @@ export default function PlannerScreen() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, dataVersion]);
 
   const weekDays = useMemo(() => {
     const start = getWeekStart(currentDate);

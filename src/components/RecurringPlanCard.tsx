@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Clock, RefreshCw } from 'lucide-react-native';
+import { Clock, Pencil, RefreshCw } from 'lucide-react-native';
 import { RecurringPlan } from '@/src/storage/entities';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
@@ -10,10 +10,11 @@ import { Card } from './Card';
 
 interface RecurringPlanCardProps {
   plan: RecurringPlan;
+  onEdit: () => void;
   onCancel: () => void;
 }
 
-export function RecurringPlanCard({ plan, onCancel }: RecurringPlanCardProps) {
+export function RecurringPlanCard({ plan, onEdit, onCancel }: RecurringPlanCardProps) {
   const { theme } = useTheme();
   const { t, language } = useI18n();
 
@@ -45,9 +46,20 @@ export function RecurringPlanCard({ plan, onCancel }: RecurringPlanCardProps) {
         </View>
       ) : null}
 
-      <Button variant="outline" size="sm" onPress={onCancel}>
-        {t('plans.cancelRecurring')}
-      </Button>
+      <View style={styles.actions}>
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={onEdit}
+          icon={<Pencil size={iconSize.xs} color={theme.primary[600]} />}
+          style={styles.actionButton}
+        >
+          {t('common.edit')}
+        </Button>
+        <Button variant="outline" size="sm" onPress={onCancel} style={styles.actionButton}>
+          {t('plans.cancelRecurring')}
+        </Button>
+      </View>
     </Card>
   );
 }
@@ -67,4 +79,6 @@ const styles = StyleSheet.create({
   schedule: { fontSize: typography.sizes.xs, lineHeight: typography.sizes.xs * typography.lineHeights.normal },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   time: { fontSize: typography.sizes.xs },
+  actions: { flexDirection: 'row', gap: spacing.sm },
+  actionButton: { flex: 1 },
 });

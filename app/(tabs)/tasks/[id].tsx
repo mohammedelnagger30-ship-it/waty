@@ -26,7 +26,7 @@ import {
   Link2,
 } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useKeyboardInset } from '@/src/hooks/useKeyboardInset';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
@@ -55,6 +55,7 @@ import {
 
 export default function TaskDetailScreen() {
   const keyboardInset = useKeyboardInset();
+  const { dataVersion } = useAuth();
   const { theme, isDark } = useTheme();
   const { t, language } = useI18n();
   const router = useRouter();
@@ -77,7 +78,7 @@ export default function TaskDetailScreen() {
     setLoading(false);
   }, [id]);
 
-  useFocusEffect(useCallback(() => { void loadTask(); }, [loadTask]));
+  useFocusEffect(useCallback(() => { void loadTask(); }, [loadTask, dataVersion]));
 
   const notify = async (work: () => Promise<unknown>) => {
     try { await work(); } catch { /* notifications are best-effort */ }
@@ -130,9 +131,11 @@ export default function TaskDetailScreen() {
   };
 
   const handleSave = async (updated: Task) => {
-    await taskRepository.update(updated.id, updated);
+    const saved = await taskRepository.update(updated.id, updated);
+    if (!saved) return false;
     await notify(() => rescheduleTaskReminders(updated));
     await loadTask();
+    return true;
   };
 
   const handleDelete = () => {
@@ -247,13 +250,31 @@ export default function TaskDetailScreen() {
         onBack={() => router.back()}
         right={(
           <View style={styles.headerActions}>
-            <Pressable onPress={handleDuplicate} hitSlop={12} style={styles.headerAction}>
+            <Pressable
+              onPress={handleDuplicate}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t('tasks.duplicate')}
+              style={styles.headerAction}
+            >
               <Copy size={iconSize.lg} color={theme.secondary[500]} />
             </Pressable>
-            <Pressable onPress={() => setShowEdit(true)} hitSlop={12} style={styles.headerAction}>
+            <Pressable
+              onPress={() => setShowEdit(true)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t('tasks.edit')}
+              style={styles.headerAction}
+            >
               <Pencil size={iconSize.lg} color={theme.text.secondary} />
             </Pressable>
-            <Pressable onPress={handleDelete} hitSlop={12} style={styles.headerAction}>
+            <Pressable
+              onPress={handleDelete}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.delete')}
+              style={styles.headerAction}
+            >
               <Trash2 size={iconSize.lg} color={theme.error} />
             </Pressable>
           </View>
@@ -510,6 +531,9 @@ export default function TaskDetailScreen() {
                   setEditingNotes(true);
                 }}
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.edit')}
+                style={styles.notesEditButton}
               >
                 <Pencil size={16} color={theme.primary[500]} />
               </Pressable>
@@ -722,6 +746,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
+  },
+  notesEditButton: {
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
   },
   subtaskProgress: {
     fontSize: typography.sizes.sm,

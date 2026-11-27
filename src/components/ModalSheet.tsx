@@ -109,7 +109,10 @@ function ModalSheetContent({ children, visible, onClose, title, onExited, ...mod
     // Samsung tablets can keep the activity unadjusted for the IME
     // (mAdjustedForIme=false). React Native then emits keyboardDidShow with a
     // zero height, which used to leave every sheet action under the keyboard.
-    const fallbackHeight = Math.min(560, Math.round(screenHeight * 0.44));
+    const fallbackHeight = Math.min(
+      560,
+      Math.round(screenHeight * (responsive.isShortLandscape ? 0.58 : 0.44)),
+    );
     const onShow = (event: { endCoordinates: { height: number } }) => {
       const reported = event?.endCoordinates?.height ?? 0;
       animate(reported > 40 ? reported : fallbackHeight);
@@ -122,7 +125,7 @@ function ModalSheetContent({ children, visible, onClose, title, onExited, ...mod
       hideSub.remove();
       keyboardOffset.value = 0;
     };
-  }, [mounted, reduced, keyboardOffset, screenHeight]);
+  }, [mounted, reduced, keyboardOffset, screenHeight, responsive.isShortLandscape]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -223,7 +226,12 @@ function ModalSheetContent({ children, visible, onClose, title, onExited, ...mod
               // On tablets, keep forms at a readable width instead of
               // stretching every field across the whole screen.
               alignSelf: 'center' as const,
+              width: '100%',
               maxWidth: responsive.formWidth,
+              // Short landscape viewports cannot fit a 90% sheet above the IME.
+              maxHeight: responsive.isShortLandscape ? '72%' : '90%',
+              paddingLeft: Math.max(spacing.lg, insets.left),
+              paddingRight: Math.max(spacing.lg, insets.right),
               // Keep sheet content above the system navigation bar without
               // leaving a large blank band below short forms.
               paddingBottom: Math.max(spacing.md, insets.bottom),
@@ -272,8 +280,6 @@ const styles = StyleSheet.create({
   sheet: {
     maxHeight: '90%',
     overflow: 'hidden',
-    paddingBottom: spacing.xxl,
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.3,

@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { View, StyleSheet, Text, Pressable, ScrollView } from 'react-native';
 import { Target, ListFilter } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, bottomSpace } from '@/src/theme';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -14,6 +14,7 @@ import { Task } from '@/src/storage/entities';
 
 /** Full-screen focus mode: same timer as task details, without the task list noise. */
 export default function FocusScreen() {
+  const { dataVersion } = useAuth();
   const { theme } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function FocusScreen() {
       void taskRepository.getAll().then((all) => {
         setTasks(all.filter((task) => task.status !== 'done' && task.status !== 'cancelled'));
       });
-    }, []),
+    }, [dataVersion]),
   );
 
   const onTimeUpdate = async (addedMinutes: number) => {

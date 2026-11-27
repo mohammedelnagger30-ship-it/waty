@@ -3,7 +3,7 @@ import { AppState, View, StyleSheet, Text, Pressable } from 'react-native';
 import { Play, Pause, RotateCcw, SkipForward, Settings as SettingsIcon, Timer } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, useResponsive } from '@/src/theme';
 import { Card } from './Card';
 import { Chip } from './Chip';
 import { pomodoroRepository, settingsRepository } from '@/src/storage';
@@ -35,6 +35,8 @@ export function PomodoroTimer({
 }: PomodoroTimerProps) {
   const { theme } = useTheme();
   const { t } = useI18n();
+  const responsive = useResponsive();
+  const circleSize = responsive.isShortLandscape ? 168 : 240;
 
   const [workMinutes, setWorkMinutes] = useState(25);
   const [breakMinutes, setBreakMinutes] = useState(5);
@@ -290,11 +292,14 @@ export function PomodoroTimer({
 
       {/* Timer circle */}
       <View style={styles.circleContainer}>
-        <View style={[styles.circle, { borderColor: phaseColor + '33' }]}>
+        <View style={[styles.circle, { borderColor: phaseColor + '33', width: circleSize, height: circleSize, borderRadius: circleSize / 2 }]}>
           <View
             style={[
               styles.progressRing,
               {
+                width: circleSize,
+                height: circleSize,
+                borderRadius: circleSize / 2,
                 borderColor: phaseColor,
                 borderTopWidth: 4,
                 borderRightWidth: progress > 0.25 ? 4 : 0,
@@ -305,7 +310,7 @@ export function PomodoroTimer({
             ]}
           />
           <View style={styles.timeDisplay}>
-            <Text style={[styles.timeText, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+            <Text style={[styles.timeText, { color: theme.text.primary, fontFamily: typography.fontFamilyBold, fontSize: responsive.isShortLandscape ? 38 : 52 }]}>
               {timeDisplay}
             </Text>
             <Text style={[styles.phaseLabel, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>

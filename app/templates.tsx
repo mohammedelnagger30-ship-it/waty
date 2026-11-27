@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, ScrollView, Pressable, Alert } from 'react-nati
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Copy, Layers, Pencil, Sunrise, MoonStar } from 'lucide-react-native';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
 import { Button, Card, EmptyState, FAB, ScreenHeader } from '@/src/components';
@@ -17,6 +17,7 @@ import { routineTemplateFor, ROUTINE_IDS, type RoutineId } from '@/src/utils/rou
 import { todayISODate } from '@/src/storage/repository';
 
 export default function TemplatesScreen() {
+  const { dataVersion } = useAuth();
   const { theme, isDark } = useTheme();
   const { t, language } = useI18n();
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function TemplatesScreen() {
     setTasks(allTasks);
   }, []);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => { void load(); }, [load, dataVersion]));
 
   const openNew = () => {
     setEditing(null);
@@ -125,6 +126,7 @@ export default function TemplatesScreen() {
               <Button
                 key={id}
                 variant="ghost"
+                style={styles.routineButton}
                 icon={id === 'morning'
                   ? <Sunrise size={17} color={theme.warning} />
                   : <MoonStar size={17} color={theme.secondary[500]} />}
@@ -224,5 +226,6 @@ const styles = StyleSheet.create({
   cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm, borderRadius: radius.md },
   routineCard: { gap: spacing.sm },
   routineTitle: { fontSize: typography.sizes.sm },
-  routineButtons: { flexDirection: 'row', gap: spacing.sm },
+  routineButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  routineButton: { flexGrow: 1, flexBasis: 110, minWidth: 0 },
 });

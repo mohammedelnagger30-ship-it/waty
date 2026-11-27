@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, StyleSheet, Text, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, FlatList, RefreshControl, Alert, Pressable } from 'react-native';
 import { CheckSquare, Calendar, ListChecks, X, Undo2, AlertTriangle, GitBranch, Zap, Check, ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius, iconSize, bottomSpace } from '@/src/theme';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -35,6 +35,8 @@ import {
   buildPriorityMatrix,
   findScheduleConflicts,
   resolveScheduleConflicts,
+  indexTasksById,
+  type TaskGroup,
 } from '@/src/utils/taskUtils';
 
 const groupLabels: Record<string, 'tasks.group.overdue' | 'tasks.group.today' | 'tasks.group.tomorrow' | 'tasks.group.thisWeek' | 'tasks.group.later'> = {
@@ -52,6 +54,10 @@ const defaultFilters: FilterOptions = {
   status: 'all',
 };
 
+type TaskListItem =
+  | { kind: 'group'; key: string; group: TaskGroup }
+  | { kind: 'task'; key: string; task: Task; conflictCount: number };
+
 // Notification failures must never abort a create/delete or leave stale data.
 async function notify(work: () => Promise<unknown>): Promise<void> {
   try {
@@ -62,6 +68,7 @@ async function notify(work: () => Promise<unknown>): Promise<void> {
 }
 
 export default function TasksScreen() {
+  const { dataVersion } = useAuth();
   const { theme } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
@@ -89,7 +96,7 @@ export default function TasksScreen() {
 
   // Tabs stay mounted, so reload whenever this screen becomes visible.
   // Otherwise a task created/deleted on another screen stays stale here.
-  useFocusEffect(useCallback(() => { void loadTasks(); }, [loadTasks]));
+  useFocusEffect(useCallback(() => { void loadTasks(); }, [loadTasks, dataVersion]));
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -97,15 +104,18 @@ export default function TasksScreen() {
   }, [loadTasks]);
 
   const handleAddTask = useCallback(async (task: Task) => {
-    await taskRepository.create(task);
+    const saved = await taskRepository.create(task);
     await notify(() => scheduleTaskReminders(task));
     await loadTasks();
+    return saved?.id === task.id;
   }, [loadTasks]);
 
   const handleUpdateTask = useCallback(async (task: Task) => {
-    await taskRepository.update(task.id, task);
+    const saved = await taskRepository.update(task.id, task);
+    if (!saved) return false;
     await notify(() => rescheduleTaskReminders(task));
     await loadTasks();
+    return true;
   }, [loadTasks]);
 
   const handleDeleteTask = useCallback(async (id: string) => {
@@ -141,9 +151,11 @@ export default function TasksScreen() {
   }, []);
 
   const handleBulkComplete = useCallback(async () => {
-    const chosen = tasks.filter((task) => selectedIds.includes(task.id) && task.status !== 'done');
-    const blocked = chosen.filter((task) => getUnmetDependencies(task, tasks).length > 0);
-    const ready = chosen.filter((task) => !getUnmetDependencies(task, tasks).length);
+    const selected = new Set(selectedIds);
+    const byId = indexTasksById(tasks);
+    const chosen = tasks.filter((task) => selected.has(task.id) && task.status !== 'done');
+    const blocked = chosen.filter((task) => getUnmetDependencies(task, tasks, byId).length > 0);
+    const ready = chosen.filter((task) => !getUnmetDependencies(task, tasks, byId).length);
     for (const task of ready) {
       const { nextOccurrence, completed } = completeRepeatingTask(task);
       await taskRepository.update(task.id, completed);
@@ -252,12 +264,170 @@ export default function TasksScreen() {
   const grouped = useMemo(() => groupTasksByDate(filteredTasks), [filteredTasks]);
   const matrixGroups = useMemo(() => buildPriorityMatrix(filteredTasks), [filteredTasks]);
   const scheduleConflicts = useMemo(() => findScheduleConflicts(filteredTasks), [filteredTasks]);
+  const listItems = useMemo<TaskListItem[]>(
+    () =>
+      grouped.flatMap((group) => [
+        { kind: 'group' as const, key: `group:${group.key}`, group },
+        ...group.tasks.map((task) => ({
+          kind: 'task' as const,
+          key: task.id,
+          task,
+          conflictCount: scheduleConflicts[task.id]?.length ?? 0,
+        })),
+      ]),
+    [grouped, scheduleConflicts],
+  );
   const impactTasks = useMemo(() => findHighImpactTasks(tasks), [tasks]);
   const quickWins = useMemo(() => findQuickWins(tasks), [tasks]);
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const hasAnyTasks = tasks.length > 0;
   const hasFilteredResults = filteredTasks.length > 0;
+
+  const listHeaderContent = useMemo(
+    () => (
+      <>
+        {impactTasks.length > 0 ? (
+          <View style={[styles.insightCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.insightHeading}>
+              <GitBranch size={17} color={theme.secondary[500]} />
+              <View style={styles.insightHeadingText}>
+                <Text style={[styles.insightTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+                  {t('tasks.impact')}
+                </Text>
+                <Text style={[styles.insightHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                  {t('tasks.impactHint')}
+                </Text>
+              </View>
+            </View>
+            {impactTasks.map((item) => (
+              <Pressable
+                key={item.task.id}
+                onPress={() => handleCardPress(item.task)}
+                style={({ pressed }) => [styles.insightRow, { opacity: pressed ? 0.7 : 1 }]}
+              >
+                <View style={[styles.impactBadge, { backgroundColor: theme.secondary[500] + '1F' }]}>
+                  <Text style={[styles.impactBadgeText, { color: theme.secondary[500], fontFamily: typography.fontFamilyBold }]}>
+                    {item.blockedCount}
+                  </Text>
+                </View>
+                <Text numberOfLines={2} style={[styles.insightRowText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                  {item.task.title}
+                </Text>
+                <ChevronRight size={16} color={theme.text.tertiary} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {quickWins.length > 0 ? (
+          <View style={[styles.insightCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.insightHeading}>
+              <Zap size={17} color={theme.warning} />
+              <View style={styles.insightHeadingText}>
+                <Text style={[styles.insightTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
+                  {t('tasks.quickWins')}
+                </Text>
+                <Text style={[styles.insightHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                  {t('tasks.quickWinsHint')}
+                </Text>
+              </View>
+            </View>
+            {quickWins.map(({ task, minutes }) => (
+              <View key={task.id} style={styles.insightRow}>
+                <Pressable
+                  onPress={() => handleCardPress(task)}
+                  style={({ pressed }) => [styles.insightRowMain, { opacity: pressed ? 0.7 : 1 }]}
+                >
+                  <Text numberOfLines={2} style={[styles.insightRowText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
+                    {task.title}
+                  </Text>
+                  <Text style={[styles.quickTime, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
+                    {`${minutes}${t('tasks.minutes')}`}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleComplete(task)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tasks.bulkComplete')}
+                  style={[styles.quickCheck, { borderColor: theme.success }]}
+                >
+                  <Check size={14} color={theme.success} strokeWidth={3} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </>
+    ),
+    [theme, t, impactTasks, quickWins, handleCardPress, handleComplete],
+  );
+
+  const renderListItem = useCallback(
+    ({ item, index }: { item: TaskListItem; index: number }) => {
+      if (item.kind === 'group') {
+        const group = item.group;
+        return (
+          <View style={index > 0 ? styles.groupSectionSpacer : null}>
+            <View style={[styles.groupHeader, { backgroundColor: theme.surfaceSecondary }]}>
+              <View style={[
+                styles.groupDot,
+                {
+                  backgroundColor:
+                    group.key === 'overdue'
+                      ? theme.error
+                      : group.key === 'today'
+                      ? theme.primary[500]
+                      : group.key === 'tomorrow'
+                      ? theme.secondary[500]
+                      : theme.accent[500],
+                },
+              ]} />
+              <Text style={[styles.groupTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
+                {t(groupLabels[group.key])}
+              </Text>
+              <View style={[styles.groupCount, { backgroundColor: theme.surfaceTertiary }]}>
+                <Text style={[styles.groupCountText, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
+                  {group.tasks.length}
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      }
+      return (
+        <TaskCard
+          task={item.task}
+          onPress={handleCardPress}
+          onComplete={handleComplete}
+          onPostpone={handlePostpone}
+          onDelete={handleDeleteConfirm}
+          onEdit={handleEditPress}
+          conflictCount={item.conflictCount}
+          selectionMode={selectionMode}
+          selected={selectedIdSet.has(item.task.id)}
+          onToggleSelect={toggleSelect}
+          onTagPress={handleTagPress}
+        />
+      );
+    },
+    [
+      theme,
+      t,
+      handleCardPress,
+      handleComplete,
+      handlePostpone,
+      handleDeleteConfirm,
+      handleEditPress,
+      selectionMode,
+      selectedIdSet,
+      toggleSelect,
+      handleTagPress,
+    ],
+  );
+
+  const taskListKey = useCallback((item: TaskListItem) => item.key, []);
 
   if (loading) {
     return (
@@ -352,174 +522,80 @@ export default function TasksScreen() {
         </Pressable>
       ) : null}
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          undoTasks.length > 0 || selectionMode ? styles.scrollContentWithBar : null,
-        ]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[theme.primary[500]]}
-            tintColor={theme.primary[500]}
-          />
-        }
-      >
-        {impactTasks.length > 0 ? (
-          <View style={[styles.insightCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.insightHeading}>
-              <GitBranch size={17} color={theme.secondary[500]} />
-              <View style={styles.insightHeadingText}>
-                <Text style={[styles.insightTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
-                  {t('tasks.impact')}
-                </Text>
-                <Text style={[styles.insightHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                  {t('tasks.impactHint')}
-                </Text>
-              </View>
-            </View>
-            {impactTasks.map((item) => (
-              <Pressable
-                key={item.task.id}
-                onPress={() => handleCardPress(item.task)}
-                style={({ pressed }) => [styles.insightRow, { opacity: pressed ? 0.7 : 1 }]}
-              >
-                <View style={[styles.impactBadge, { backgroundColor: theme.secondary[500] + '1F' }]}>
-                  <Text style={[styles.impactBadgeText, { color: theme.secondary[500], fontFamily: typography.fontFamilyBold }]}>
-                    {item.blockedCount}
-                  </Text>
-                </View>
-                <Text numberOfLines={2} style={[styles.insightRowText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
-                  {item.task.title}
-                </Text>
-                <ChevronRight size={16} color={theme.text.tertiary} />
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
-        {quickWins.length > 0 ? (
-          <View style={[styles.insightCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.insightHeading}>
-              <Zap size={17} color={theme.warning} />
-              <View style={styles.insightHeadingText}>
-                <Text style={[styles.insightTitle, { color: theme.text.primary, fontFamily: typography.fontFamilySemiBold }]}>
-                  {t('tasks.quickWins')}
-                </Text>
-                <Text style={[styles.insightHint, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                  {t('tasks.quickWinsHint')}
-                </Text>
-              </View>
-            </View>
-            {quickWins.map(({ task, minutes }) => (
-              <View key={task.id} style={styles.insightRow}>
-                <Pressable
-                  onPress={() => handleCardPress(task)}
-                  style={({ pressed }) => [styles.insightRowMain, { opacity: pressed ? 0.7 : 1 }]}
+      {view === 'list' && hasFilteredResults ? (
+        <FlatList
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            undoTasks.length > 0 || selectionMode ? styles.scrollContentWithBar : null,
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[theme.primary[500]]}
+              tintColor={theme.primary[500]}
+            />
+          }
+          data={listItems}
+          renderItem={renderListItem}
+          keyExtractor={taskListKey}
+          ListHeaderComponent={listHeaderContent}
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          updateCellsBatchingPeriod={50}
+        />
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            undoTasks.length > 0 || selectionMode ? styles.scrollContentWithBar : null,
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[theme.primary[500]]}
+              tintColor={theme.primary[500]}
+            />
+          }
+        >
+          {listHeaderContent}
+          {!hasAnyTasks ? (
+            <EmptyState
+              icon={<CheckSquare size={iconSize.hero} color={theme.text.tertiary} />}
+              title={t('tasks.noTasks')}
+              description={t('tasks.noTasksDesc')}
+            />
+          ) : !hasFilteredResults ? (
+            <EmptyState
+              icon={<CheckSquare size={iconSize.hero} color={theme.text.tertiary} />}
+              title={t('tasks.noResults')}
+              description={t('tasks.noResultsDesc')}
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => setFilters(defaultFilters)}
                 >
-                  <Text numberOfLines={2} style={[styles.insightRowText, { color: theme.text.secondary, fontFamily: typography.fontFamily }]}>
-                    {task.title}
-                  </Text>
-                  <Text style={[styles.quickTime, { color: theme.text.tertiary, fontFamily: typography.fontFamily }]}>
-                    {`${minutes}${t('tasks.minutes')}`}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => handleComplete(task)}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('tasks.bulkComplete')}
-                  style={[styles.quickCheck, { borderColor: theme.success }]}
-                >
-                  <Check size={14} color={theme.success} strokeWidth={3} />
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {!hasAnyTasks ? (
-          <EmptyState
-            icon={<CheckSquare size={iconSize.hero} color={theme.text.tertiary} />}
-            title={t('tasks.noTasks')}
-            description={t('tasks.noTasksDesc')}
-          />
-        ) : !hasFilteredResults ? (
-          <EmptyState
-            icon={<CheckSquare size={iconSize.hero} color={theme.text.tertiary} />}
-            title={t('tasks.noResults')}
-            description={t('tasks.noResultsDesc')}
-            action={
-              <Button
-                variant="secondary"
-                size="sm"
-                onPress={() => setFilters(defaultFilters)}
-              >
-                {t('tasks.clearFilters')}
-              </Button>
-            }
-          />
-        ) : view === 'matrix' ? (
-          <PriorityMatrix
-            groups={matrixGroups}
-            onOpenTask={handleCardPress}
-            onComplete={handleComplete}
-          />
-        ) : grouped.length === 0 ? (
-          <EmptyState
-            icon={<CheckSquare size={iconSize.hero} color={theme.text.tertiary} />}
-            title={t('tasks.noTasks')}
-            description={t('tasks.noTasksDesc')}
-          />
-        ) : (
-          grouped.map((group) => (
-            <View key={group.key} style={styles.groupSection}>
-              <View style={[styles.groupHeader, { backgroundColor: theme.surfaceSecondary }]}>
-                <View style={[
-                  styles.groupDot,
-                  {
-                    backgroundColor:
-                      group.key === 'overdue'
-                        ? theme.error
-                        : group.key === 'today'
-                        ? theme.primary[500]
-                        : group.key === 'tomorrow'
-                        ? theme.secondary[500]
-                        : theme.accent[500],
-                  },
-                ]} />
-                <Text style={[styles.groupTitle, { color: theme.text.primary, fontFamily: typography.fontFamilyBold }]}>
-                  {t(groupLabels[group.key])}
-                </Text>
-                <View style={[styles.groupCount, { backgroundColor: theme.surfaceTertiary }]}>
-                  <Text style={[styles.groupCountText, { color: theme.text.secondary, fontFamily: typography.fontFamilySemiBold }]}>
-                    {group.tasks.length}
-                  </Text>
-                </View>
-              </View>
-
-              {group.tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onPress={handleCardPress}
-                  onComplete={handleComplete}
-                  onPostpone={handlePostpone}
-                  onDelete={handleDeleteConfirm}
-                  conflictCount={scheduleConflicts[task.id]?.length ?? 0}
-                  selectionMode={selectionMode}
-                  selected={selectedIdSet.has(task.id)}
-                  onToggleSelect={toggleSelect}
-                  onTagPress={handleTagPress}
-                />
-              ))}
-            </View>
-          ))
-        )}
-      </ScrollView>
+                  {t('tasks.clearFilters')}
+                </Button>
+              }
+            />
+          ) : view === 'matrix' ? (
+            <PriorityMatrix
+              groups={matrixGroups}
+              onOpenTask={handleCardPress}
+              onComplete={handleComplete}
+            />
+          ) : null}
+        </ScrollView>
+      )}
 
       {undoTasks.length > 0 && !selectionMode ? (
         <Pressable
@@ -583,7 +659,7 @@ export default function TasksScreen() {
       <QuickAddModal
         visible={showQuickAdd}
         onClose={() => setShowQuickAdd(false)}
-        onAdd={handleAddTask}
+        onAdd={(task) => { void handleAddTask(task); }}
         onMoreDetails={handleMoreDetails}
       />
 
@@ -694,6 +770,9 @@ const styles = StyleSheet.create({
   },
   groupSection: {
     marginBottom: spacing.lg,
+  },
+  groupSectionSpacer: {
+    marginTop: spacing.lg,
   },
   groupHeader: {
     flexDirection: 'row',

@@ -3,7 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BellRing, Plus, X } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, typography, radius } from '@/src/theme';
+import { spacing, typography, radius, useResponsive } from '@/src/theme';
 import { Task, ReminderOffset } from '@/src/storage/entities';
 import { notificationSettingsRepository } from '@/src/storage';
 import { generateId, todayISODate } from '@/src/storage/repository';
@@ -61,6 +61,7 @@ export function PlanBatchModal({
 }: PlanBatchModalProps) {
   const { theme } = useTheme();
   const { t, language } = useI18n();
+  const responsive = useResponsive();
 
   const seedDate = initialDate || todayISODate();
   const [mode, setMode] = useState<BatchMode>('day');
@@ -170,7 +171,11 @@ export function PlanBatchModal({
           </View>
         )}
 
-        <ScrollView style={styles.rowsScroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={[styles.rowsScroll, { maxHeight: responsive.isShortLandscape ? 200 : 380 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {rows.map((row, index) => (
             <View
               key={row.id}

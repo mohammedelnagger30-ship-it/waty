@@ -12,7 +12,7 @@ import { DownloadCloud } from 'lucide-react-native';
 import { Button } from './Button';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
-import { spacing, radius, typography } from '@/src/theme';
+import { spacing, radius, typography, useResponsive } from '@/src/theme';
 import {
   cancelDownload,
   downloadUpdate,
@@ -34,6 +34,7 @@ type Phase = 'idle' | 'downloading' | 'installing' | 'failed';
 export function UpdateDialog({ info, onDismiss }: UpdateDialogProps) {
   const { theme } = useTheme();
   const { t, language, isRTL } = useI18n();
+  const responsive = useResponsive();
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState<DownloadProgress>({ written: 0, total: 0, percent: 0 });
   const cancelledRef = useRef(false);
@@ -80,11 +81,13 @@ export function UpdateDialog({ info, onDismiss }: UpdateDialogProps) {
               backgroundColor: theme.surface,
               borderColor: theme.border,
               shadowColor: theme.isDark ? '#000000' : theme.primary[900],
+              maxHeight: responsive.isShortLandscape ? '88%' : '82%',
             },
           ]}
           onPress={() => {}}
           accessibilityRole="alert"
         >
+          <ScrollView contentContainerStyle={styles.cardContent} showsVerticalScrollIndicator={false}>
           <View style={[styles.iconWrap, { backgroundColor: theme.primary[500] + '18' }]}>
             <DownloadCloud size={26} color={theme.primary[500]} strokeWidth={2.2} />
           </View>
@@ -116,7 +119,10 @@ export function UpdateDialog({ info, onDismiss }: UpdateDialogProps) {
           </Text>
 
           {notes ? (
-            <ScrollView style={styles.notesWrap} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={[styles.notesWrap, responsive.isShortLandscape ? { maxHeight: 90 } : null]}
+              showsVerticalScrollIndicator={false}
+            >
               <Text
                 style={[
                   styles.notes,
@@ -213,6 +219,7 @@ export function UpdateDialog({ info, onDismiss }: UpdateDialogProps) {
               </>
             )}
           </View>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -268,14 +275,19 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 430,
+    maxHeight: '82%',
     borderRadius: radius.xl,
     borderWidth: 1,
-    padding: spacing.lg,
-    gap: spacing.sm,
+    overflow: 'hidden',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.22,
     shadowRadius: 20,
     elevation: 8,
+  },
+  cardContent: {
+    padding: spacing.lg,
+    gap: spacing.sm,
+    flexGrow: 1,
   },
   iconWrap: {
     width: 46,

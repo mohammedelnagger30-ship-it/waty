@@ -3,6 +3,11 @@ node_modules/
 dist/
 web-build/
 
+# Local environment / Supabase credentials (EXPO_PUBLIC_* is still bundled into builds)
+.env
+.env.local
+.env.*.local
+
 # Native build output
 android/.gradle/
 android/build/

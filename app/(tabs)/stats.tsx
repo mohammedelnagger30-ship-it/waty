@@ -20,7 +20,7 @@ import {
   Award,
   History,
 } from 'lucide-react-native';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, radius, typography, iconSize, bottomSpace, useResponsive } from '@/src/theme';
 import { ScreenHeader, EmptyState, Chip, StatCard, ProgressRing, TrendChart, Card, SectionHeader } from '@/src/components';
@@ -42,6 +42,7 @@ import { buildBadges } from '@/src/utils/achievements';
 const PERIODS: Period[] = ['7', '30', 'all'];
 
 export default function StatsScreen() {
+  const { dataVersion } = useAuth();
   const { theme } = useTheme();
   const responsive = useResponsive();
   const { t, language, isRTL } = useI18n();
@@ -75,7 +76,7 @@ export default function StatsScreen() {
 
   useEffect(() => {
     load().catch(() => {});
-  }, [load]);
+  }, [load, dataVersion]);
 
   const stats = useMemo(
     () =>

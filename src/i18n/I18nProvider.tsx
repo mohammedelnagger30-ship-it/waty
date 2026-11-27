@@ -16,23 +16,27 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 export function I18nProvider({ children, initialLanguage = 'ar' }: { children: ReactNode; initialLanguage?: Language }) {
   const [language, setLanguageState] = useState<Language>(initialLanguage);
   const loaded = useRef(false);
+  const persistedLanguage = useRef<Language>(initialLanguage);
   const rtl = isRTL(language);
 
   // Load the saved language once on mount.
   useEffect(() => {
     settingsRepository.getOrCreate()
       .then((settings) => {
-        if (settings.language === 'ar' || settings.language === 'en') {
-          setLanguageState(settings.language);
-        }
+        const next = settings.language === 'ar' || settings.language === 'en'
+          ? settings.language
+          : language;
+        persistedLanguage.current = next;
+        setLanguageState(next);
       })
       .catch(() => {})
       .finally(() => { loaded.current = true; });
   }, []);
 
-  // Persist user changes (skip the initial mount to avoid overwriting storage).
+  // Persist user changes (skip the initial mount and no-op loads).
   useEffect(() => {
-    if (!loaded.current) return;
+    if (!loaded.current || persistedLanguage.current === language) return;
+    persistedLanguage.current = language;
     settingsRepository.patch({ language }).catch(() => {});
   }, [language]);
 

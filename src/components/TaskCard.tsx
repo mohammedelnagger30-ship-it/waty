@@ -10,7 +10,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { Check, Clock, Calendar, AlertTriangle, Trash2, Star } from 'lucide-react-native';
+import { useIsFocused } from '@react-navigation/native';
+import { Check, Clock, Calendar, AlertTriangle, Trash2, Star, Pencil } from 'lucide-react-native';
 import { useTheme } from '@/src/context';
 import { useI18n } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
@@ -37,6 +38,8 @@ interface TaskCardProps {
   onComplete: (task: Task) => void | Promise<void>;
   onPostpone: (task: Task) => void | Promise<void>;
   onDelete: (task: Task) => void | Promise<void>;
+  /** Opens the full edit form without navigating away from the list. */
+  onEdit?: (task: Task) => void;
   /** Optional multi-select mode used by the bulk actions bar. */
   selectionMode?: boolean;
   selected?: boolean;
@@ -77,6 +80,7 @@ function TaskCardImpl({
   onComplete,
   onPostpone,
   onDelete,
+  onEdit,
   selectionMode = false,
   selected = false,
   onToggleSelect,
@@ -85,7 +89,10 @@ function TaskCardImpl({
 }: TaskCardProps) {
   const { theme, isDark } = useTheme();
   const { t, isRTL } = useI18n();
-  const reduced = useReducedMotion();
+  const reducedMotion = useReducedMotion();
+  // Tabs remain mounted. Stop the pulsing worklet while another tab is open.
+  const focused = useIsFocused();
+  const reduced = reducedMotion || !focused;
 
   // +1 in LTR, -1 in RTL. All swipe math is done in "logical" space so the
   // same green/yellow/red actions appear on the mirrored side in RTL.
@@ -332,6 +339,25 @@ function TaskCardImpl({
                   </Text>
                 ) : null}
               </View>
+
+              {onEdit && !selectionMode ? (
+                <Pressable
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tasks.edit')}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    haptics.selection();
+                    onEdit(task);
+                  }}
+                  style={({ pressed }) => [
+                    styles.editButton,
+                    { backgroundColor: pressed ? theme.surfaceTertiary : theme.surfaceSecondary },
+                  ]}
+                >
+                  <Pencil size={17} color={theme.text.secondary} />
+                </Pressable>
+              ) : null}
             </View>
 
             <View style={styles.metaRow}>
@@ -511,6 +537,15 @@ const styles = StyleSheet.create({
   titleArea: {
     flex: 1,
     gap: 2,
+    minWidth: 0,
+  },
+  editButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -6,
   },
   title: {
     fontSize: typography.sizes.md,

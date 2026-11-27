@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Text, ScrollView, Alert, Share, Platform } from 'react-native';
 import { CheckCircle2, Target, Flame, Save, CalendarRange, Sparkles, Copy } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/src/context';
+import { useAuth, useTheme } from '@/src/context';
 import { useKeyboardInset } from '@/src/hooks/useKeyboardInset';
 import { useI18n, type TranslationKey } from '@/src/i18n';
 import { spacing, typography, radius } from '@/src/theme';
@@ -35,6 +35,7 @@ function getWeekStart(date: Date): Date {
 
 export default function WeeklyReviewScreen() {
   const keyboardInset = useKeyboardInset();
+  const { dataVersion } = useAuth();
   const { theme } = useTheme();
   const { t, language } = useI18n();
   const router = useRouter();
@@ -81,7 +82,7 @@ export default function WeeklyReviewScreen() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, dataVersion]);
 
   const stats = useMemo(() => {
     const dueTasks = tasks.filter((task) => task.date >= startStr && task.date <= endStr);
